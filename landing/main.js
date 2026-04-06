@@ -84,7 +84,13 @@ onReady(() => {
     const override = url.searchParams.get("api");
     if (override) return override.replace(/\/+$/, "");
     const configured = String(window.DERMIQ_API_BASE || "").trim();
-    if (configured) return configured.replace(/\/+$/, "");
+    if (configured) {
+      // If someone forgot to change config and it points to localhost, it will break on mobile/public.
+      const host = String(window.location.hostname || "").toLowerCase();
+      const isPublicHost = host && host !== "127.0.0.1" && host !== "localhost";
+      const isLocalConfigured = /^(https?:\/\/)?(127\.0\.0\.1|localhost)(:\d+)?(\/|$)/i.test(configured);
+      if (!(isPublicHost && isLocalConfigured)) return configured.replace(/\/+$/, "");
+    }
 
     // If the landing is served together with the backend (single-origin deploy), use current origin.
     // Keep local default when served from the standalone dev server (5173).

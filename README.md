@@ -37,6 +37,8 @@ This repo includes a standalone cinematic landing page in `landing/` (pure HTML/
 - `python -m http.server 5173`
 - Open `http://127.0.0.1:5173`
 
+If you deploy the landing separately from the backend, set `window.DERMIQ_API_BASE` in `landing/config.js` to your public backend URL.
+
 ---
 
 # Next.js Website (Recommended)
