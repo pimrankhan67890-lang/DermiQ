@@ -228,8 +228,28 @@ onReady(() => {
     const base = apiBase();
     setStatus(`API: checking (${base})…`);
     try {
-      const r = await fetch(`${base}/health`, { method: "GET" });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      // Render free-tier can take ~50s to wake. Retry a few times with a short timeout.
+      const url = `${base}/health`;
+      let lastErr = "";
+      for (let attempt = 1; attempt <= 5; attempt++) {
+        const controller = new AbortController();
+        const t = window.setTimeout(() => controller.abort(), 12000);
+        try {
+          if (attempt > 1) setStatus(`API: waking up… (try ${attempt}/5)`);
+          const r = await fetch(url, { method: "GET", signal: controller.signal });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          window.clearTimeout(t);
+          lastErr = "";
+          break;
+        } catch (e) {
+          window.clearTimeout(t);
+          lastErr = e?.message ? String(e.message) : "Request failed";
+          // Small delay between attempts.
+          await new Promise((res) => window.setTimeout(res, 900));
+        }
+      }
+      if (lastErr) throw new Error(lastErr);
+
       setStatus("API: online ✅");
 
       // Optional: show model status so users understand whether this is a real model or demo fallback.
@@ -254,14 +274,30 @@ onReady(() => {
       return true;
     } catch {
       setStatus("API: offline ❌");
-      setError(
-        `Backend API not running. Start it from repo root:\n` +
-          `python -m venv .venv\n` +
-          `.\\.venv\\Scripts\\Activate.ps1\n` +
-          `pip install -r backend/requirements.txt\n` +
-          `python -m uvicorn backend.main:app --reload --port 8000\n` +
-          `\nThen refresh this page.`,
-      );
+
+      const host = String(window.location.hostname || "").toLowerCase();
+      const isGitHubPages = host.endsWith("github.io");
+      const isLocalHost = host === "127.0.0.1" || host === "localhost";
+      const configured = String(window.DERMIQ_API_BASE || "").trim();
+      const usingSameOrigin = base === window.location.origin;
+
+      if (!isLocalHost && isGitHubPages && usingSameOrigin && !configured) {
+        setError(
+          `Backend API not reachable from this site.\n\n` +
+            `You are hosting the landing separately (GitHub Pages). Set DERMIQ_API_BASE in landing/config.js to your backend URL (e.g. https://your-backend.onrender.com), redeploy, then refresh.`,
+        );
+      } else {
+        setError(
+          `Backend API not reachable.\n\n` +
+            `If you are using Render free tier, wait ~50 seconds and refresh (cold start).\n` +
+            `If you deployed frontend separately, set DERMIQ_API_BASE in landing/config.js to the public backend URL.\n\n` +
+            `Dev (local) start commands:\n` +
+            `python -m venv .venv\n` +
+            `.\\.venv\\Scripts\\Activate.ps1\n` +
+            `pip install -r backend/requirements-ml.txt\n` +
+            `python -m uvicorn backend.main:app --reload --port 8000`,
+        );
+      }
       setModelStatus("");
       return false;
     }
