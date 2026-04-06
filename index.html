@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Skin Assessment Module</title>
+    <meta http-equiv="refresh" content="0; url=./landing/" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #020408;
+        --card: rgba(255, 255, 255, 0.05);
+        --line: rgba(255, 255, 255, 0.12);
+        --ink: rgba(255, 255, 255, 0.92);
+        --muted: rgba(255, 255, 255, 0.65);
+        --teal: #00e5c4;
+      }
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        background: radial-gradient(800px 480px at 30% 15%, rgba(0, 229, 196, 0.12), transparent 60%), var(--bg);
+        color: var(--ink);
+        display: grid;
+        min-height: 100vh;
+        place-items: center;
+        padding: 24px;
+      }
+      .card {
+        max-width: 780px;
+        width: 100%;
+        border: 1px solid var(--line);
+        background: var(--card);
+        border-radius: 18px;
+        padding: 20px;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 8px;
+        letter-spacing: -0.01em;
+      }
+      p {
+        margin: 0 0 16px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 14px;
+        border-radius: 999px;
+        text-decoration: none;
+        color: var(--ink);
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.03);
+      }
+      a.primary {
+        border-color: rgba(0, 229, 196, 0.25);
+        background: rgba(0, 229, 196, 0.12);
+        color: var(--teal);
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 12px;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>AI Skin Assessment Module</h1>
+      <p>
+        Redirecting to the landing page… If you see a directory listing, open the landing manually:
+        <code>/landing/</code>
+      </p>
+      <div class="row">
+        <a class="primary" href="./landing/">Open DermIQ landing</a>
+        <a href="./frontend/">Frontend folder</a>
+        <a href="./backend/">Backend folder</a>
+      </div>
+    </div>
+  </body>
+</html>
+

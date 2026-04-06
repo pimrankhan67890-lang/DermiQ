@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="750" viewBox="0 0 1200 750">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2563eb" stop-opacity="0.20"/>
+      <stop offset="0.55" stop-color="#6366f1" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#10b981" stop-opacity="0.12"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="750" fill="url(#g)"/>
+  <rect x="70" y="70" width="1060" height="610" rx="48" fill="#ffffff" fill-opacity="0.72" stroke="#cbd5e1"/>
+  <text x="120" y="175" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto" font-size="54" font-weight="850" fill="#0f172a">Lightweight Moisturizer</text>
+  <text x="120" y="245" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto" font-size="28" fill="#334155">Non-comedogenic • Daily hydration</text>
+  <g transform="translate(120 310)">
+    <rect x="0" y="0" width="420" height="340" rx="42" fill="#0f172a" fill-opacity="0.05" stroke="#cbd5e1"/>
+    <rect x="130" y="95" width="160" height="215" rx="40" fill="#ffffff" stroke="#cbd5e1"/>
+    <rect x="156" y="65" width="110" height="50" rx="22" fill="#10b981" fill-opacity="0.82"/>
+    <rect x="155" y="175" width="110" height="18" rx="9" fill="#0f172a" fill-opacity="0.12"/>
+    <rect x="155" y="210" width="110" height="14" rx="7" fill="#0f172a" fill-opacity="0.10"/>
+  </g>
+</svg>

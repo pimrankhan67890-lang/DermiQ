@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DermIQ — AI Skin Intelligence</title>
+    <meta name="description" content="AI-powered skin intelligence. Upload a photo and get non-diagnostic skin insights in seconds." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-1"></div>
+    <div class="ambient ambient-2"></div>
+    <div class="ambient ambient-3"></div>
+
+    <!-- NAV -->
+    <nav>
+      <div class="logo">Derm<span>IQ</span></div>
+      <ul class="nav-links">
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#products">Products</a></li>
+        <li><a href="#safety">Safety</a></li>
+      </ul>
+      <a class="nav-cta" href="#demo">Try for free</a>
+    </nav>
+
+    <!-- HERO -->
+    <section class="hero">
+      <div class="hero-grid max-w">
+        <div class="hero-left">
+          <div class="hero-badge">
+            <div class="badge-dot"></div>
+            <span class="badge-text">AI-Powered Skin Intelligence</span>
+          </div>
+          <h1>Your skin,<br /><span class="accent">decoded</span> by<br /><span class="accent-coral">AI.</span></h1>
+          <p class="hero-sub">
+            Upload one photo. Get AI-powered skin condition insights, confidence scores, and personalised product recommendations — in seconds.
+          </p>
+          <div class="hero-actions">
+            <a href="#demo" class="btn-primary"><span>📸</span> Analyse my skin</a>
+            <a href="#how" class="btn-secondary">How it works →</a>
+          </div>
+          <div class="hero-stats">
+            <div>
+              <div class="stat-num">8+</div>
+              <div class="stat-label">Conditions detected</div>
+            </div>
+            <div>
+              <div class="stat-num">92%</div>
+              <div class="stat-label">Avg. confidence score</div>
+            </div>
+            <div>
+              <div class="stat-num">Free</div>
+              <div class="stat-label">Always free to use</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-visual">
+          <div class="phone-wrap">
+            <div class="orb orb-1">Acne<br />87%</div>
+            <div class="orb orb-2">✓ Safe</div>
+            <div class="orb orb-3">🛒 4</div>
+            <div class="phone-frame">
+              <div class="phone-screen">
+                <div class="phone-topbar">
+                  <span class="phone-logo">DermIQ</span>
+                  <div class="phone-avatar">AI</div>
+                </div>
+                <div class="upload-zone" aria-hidden="true">
+                  <div class="scanning-bar"></div>
+                  <div class="upload-icon">📷</div>
+                  <div class="upload-text">Upload skin photo</div>
+                  <div class="upload-sub">JPG, PNG · Max 10MB</div>
+                </div>
+                <div class="result-card">
+                  <div class="result-label">Top result</div>
+                  <div class="result-name">Acne Vulgaris</div>
+                  <div class="confidence-bar-wrap">
+                    <div class="conf-label"><span>Confidence</span><span>87%</span></div>
+                    <div class="conf-track"><div class="conf-fill"></div></div>
+                  </div>
+                </div>
+                <div class="mini-products" aria-hidden="true">
+                  <div class="mini-product">
+                    <span class="mini-product-icon">🧴</span>
+                    <span class="mini-product-name">Salicylic Wash</span>
+                    <span class="mini-product-label">Commonly used</span>
+                  </div>
+                  <div class="mini-product">
+                    <span class="mini-product-icon">☀️</span>
+                    <span class="mini-product-name">SPF 50 Gel</span>
+                    <span class="mini-product-label">Daily care</span>
+                  </div>
+                  <div class="mini-product">
+                    <span class="mini-product-icon">💧</span>
+                    <span class="mini-product-name">Niacinamide</span>
+                    <span class="mini-product-label">May help with</span>
+                  </div>
+                  <div class="mini-product">
+                    <span class="mini-product-icon">🌿</span>
+                    <span class="mini-product-name">Tea Tree Oil</span>
+                    <span class="mini-product-label">General support</span>
+                  </div>
+                </div>
+                <div class="safety-pill">
+                  <span class="safety-icon">⚠️</span>
+                  <span class="safety-text">Not a diagnosis. Consult a dermatologist for treatment.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section class="section-pad" id="how">
+      <div class="max-w">
+        <div class="reveal">
+          <div class="section-label">The process</div>
+          <h2 class="section-title">Three steps to<br />skin clarity</h2>
+        </div>
+        <div class="steps-grid">
+          <div class="step-card reveal">
+            <div class="step-num">01</div>
+            <div class="step-icon">📸</div>
+            <div class="step-title">Upload your photo</div>
+            <p class="step-desc">
+              Take or upload a clear close-up photo of the affected skin area. Works on all skin tones and lighting conditions.
+            </p>
+          </div>
+          <div class="step-card reveal">
+            <div class="step-num">02</div>
+            <div class="step-icon step-icon--coral">🧠</div>
+            <div class="step-title">AI analyses instantly</div>
+            <p class="step-desc">
+              Our model scans for skin conditions, returning a confidence score and uncertainty flag in seconds (educational only).
+            </p>
+          </div>
+          <div class="step-card reveal">
+            <div class="step-num">03</div>
+            <div class="step-icon step-icon--amber">✨</div>
+            <div class="step-title">Get guidance & products</div>
+            <p class="step-desc">
+              Receive safe general skincare guidance and matched product recommendations. Always with a reminder to see a dermatologist.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCAN DEMO -->
+    <section class="scan-section" id="demo">
+      <div class="scan-grid">
+        <div class="upload-demo reveal">
+          <div class="corner-accent corner-tl"></div>
+          <div class="corner-accent corner-tr"></div>
+          <div class="corner-accent corner-bl"></div>
+          <div class="corner-accent corner-br"></div>
+          <div class="upload-ring">
+            <div class="upload-ring-inner">🔬</div>
+          </div>
+          <div class="upload-demo-text">Drop image here</div>
+          <div class="upload-demo-sub">or click to browse</div>
+          <button class="upload-btn" type="button">Choose photo →</button>
+        </div>
+        <div class="scan-info reveal">
+          <div>
+            <div class="section-label">Live demo preview</div>
+            <h2 class="section-title section-title--demo">Sample analysis<br />result</h2>
+            <p class="scan-sub">
+              Below shows what a typical output looks like. Confidence, top 3 predictions, and matched products — all generated from a single
+              photo.
+            </p>
+            <div class="api-status" id="apiStatus">API: checking…</div>
+            <div class="muted" id="modelStatus" style="margin-top: 6px;"></div>
+            <div class="api-error" id="apiError" hidden></div>
+          </div>
+          <div class="scan-result-card">
+            <div class="result-row">
+              <div class="condition-name" id="topLabel">Acne Vulgaris</div>
+              <div class="confidence-badge" id="topProb">87% match</div>
+            </div>
+            <div class="top-predictions">
+              <div class="pred-item">
+                <span class="pred-name pred-name--top" id="pred1Name">Acne Vulgaris</span>
+                <div class="pred-bar-track"><div class="pred-bar-fill fill-teal" id="pred1Fill" style="width: 87%"></div></div>
+                <span class="pred-pct" id="pred1Pct">87%</span>
+              </div>
+              <div class="pred-item">
+                <span class="pred-name" id="pred2Name">Rosacea</span>
+                <div class="pred-bar-track"><div class="pred-bar-fill fill-coral" id="pred2Fill" style="width: 9%"></div></div>
+                <span class="pred-pct" id="pred2Pct">9%</span>
+              </div>
+              <div class="pred-item">
+                <span class="pred-name" id="pred3Name">Eczema</span>
+                <div class="pred-bar-track"><div class="pred-bar-fill fill-amber" id="pred3Fill" style="width: 4%"></div></div>
+                <span class="pred-pct" id="pred3Pct">4%</span>
+              </div>
+            </div>
+          </div>
+          <div class="guidance-card">
+            <div class="guidance-label">General guidance</div>
+            <p class="guidance-text" id="adviceText">
+              Gentle non-comedogenic cleansers, salicylic acid, and oil-free moisturisers are commonly used for this condition. Avoid heavy
+              creams. Consult a dermatologist before starting any treatment.
+            </p>
+            <p class="guidance-footnote" id="notesText"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRODUCTS -->
+    <section class="section-pad" id="products">
+      <div class="max-w">
+        <div class="reveal">
+          <div class="section-label">Smart recommendations</div>
+          <h2 class="section-title">Products matched<br />to your condition</h2>
+        </div>
+        <div class="products-grid" id="productsGrid" aria-live="polite"></div>
+        <div class="muted" id="productsEmpty" style="margin-top: 14px;">
+          Upload a photo above to see products matched to your condition (with real “Buy” links).
+        </div>
+      </div>
+    </section>
+
+    <!-- SAFETY -->
+    <section class="safety-section" id="safety">
+      <div class="max-w">
+        <div class="safety-inner reveal">
+          <div>
+            <div class="safety-pill-big">⚠️ Safety first</div>
+            <h2 class="safety-title">Built with care.<br />Not a diagnosis.</h2>
+          </div>
+          <div class="safety-rules">
+            <div class="safety-rule">
+              <div class="safety-check">✓</div>
+              <span>Never claims to replace a dermatologist or provide final medical diagnosis</span>
+            </div>
+            <div class="safety-rule">
+              <div class="safety-check">✓</div>
+              <span>Low-confidence results always prompt the user to seek professional review</span>
+            </div>
+            <div class="safety-rule">
+              <div class="safety-check">✓</div>
+              <span>Product descriptions say "may help with" — never "cures" or "treats"</span>
+            </div>
+          </div>
+          <div class="safety-rules">
+            <div class="safety-rule">
+              <div class="safety-check">✓</div>
+              <span>Uncertainty flag shown for unclear or low-quality uploaded images</span>
+            </div>
+            <div class="safety-rule">
+              <div class="safety-check">✓</div>
+              <span>No dangerous self-treatment advice is ever generated by the system</span>
+            </div>
+            <div class="safety-rule">
+              <div class="safety-check">✓</div>
+              <span>All outputs include a permanent reminder to consult a medical professional</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="section-pad">
+      <div class="max-w cta">
+        <div class="reveal cta-inner">
+          <div class="section-label cta-label">Free forever</div>
+          <h2 class="section-title">Ready to understand<br />your skin?</h2>
+          <p class="cta-sub">
+            Upload a photo and get AI-powered insights in under 5 seconds. No signup needed. No cost. Just clarity.
+          </p>
+          <a href="#demo" class="btn-primary btn-primary--cta">📸 &nbsp;Start free scan now</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+      <div class="footer-inner">
+        <div>
+          <div class="logo footer-logo">Derm<span>IQ</span></div>
+          <div class="footer-text">AI-powered skin intelligence. Free. Open.</div>
+        </div>
+        <div class="footer-links">
+          <a href="#" id="githubLink" target="_blank" rel="noreferrer noopener">GitHub</a>
+          <a href="./privacy.html">Privacy</a>
+          <a href="./terms.html">Terms</a>
+          <a href="./disclaimer.html">Disclaimer</a>
+          <a href="#" id="contactLink">Contact</a>
+        </div>
+        <div class="footer-text">© <span id="year"></span> DermIQ — Not medical advice.</div>
+      </div>
+    </footer>
+
+    <script defer src="./config.js"></script>
+    <script defer src="./main.js"></script>
+  </body>
+</html>

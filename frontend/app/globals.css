@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  color: rgba(255, 255, 255, 0.92);
+  background:
+    radial-gradient(900px 600px at 18% 15%, rgba(34, 211, 238, 0.10), transparent 62%),
+    radial-gradient(1200px 740px at 82% 32%, rgba(167, 139, 250, 0.11), transparent 60%),
+    radial-gradient(1000px 740px at 50% 100%, rgba(59, 130, 246, 0.10), transparent 58%),
+    linear-gradient(180deg, #060813, #070a18);
+  overflow-x: hidden;
+}
+
+.glass {
+  background: linear-gradient(180deg, rgba(14, 18, 38, 0.55), rgba(11, 14, 30, 0.42));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+}
+
+.ring-soft {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+    0 24px 70px rgba(0, 0, 0, 0.32);
+}
+
+.shadow-neon {
+  box-shadow:
+    0 18px 70px rgba(34, 211, 238, 0.18),
+    0 20px 76px rgba(167, 139, 250, 0.14);
+}
+
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 90px 90px;
+  mask-image: radial-gradient(900px 560px at 50% 20%, rgba(0, 0, 0, 0.65), transparent 70%);
+  opacity: 0.22;
+}
+
+.bg-vignette {
+  background:
+    radial-gradient(900px 600px at 50% 10%, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.62)),
+    radial-gradient(1200px 900px at 50% 90%, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.72));
+  opacity: 0.92;
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 700ms cubic-bezier(0.2, 0.9, 0.1, 1), transform 700ms cubic-bezier(0.2, 0.9, 0.1, 1);
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    transition: none;
+    transform: none;
+    opacity: 1;
+  }
+}

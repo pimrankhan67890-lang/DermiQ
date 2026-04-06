@@ -1,0 +1,35 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local caches / generated
+.keras_cache/
+.npm-cache/
+
+# Logs
+*.log
+*.out
+*.err
+*.out.log
+*.err.log
+
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+
+backend/.env
+
+.DS_Store
+
+# Large datasets / archives (do not commit)
+archive.zip
+data/train/
+data/_incoming_archive/
+
+# Trained model artifacts (labels.json is OK to commit)
+models/skin_model*.h5
+models/skin_model*.keras
+models/skin_model*.zip
+!models/skin_model.h5
