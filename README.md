@@ -80,8 +80,10 @@ Notes:
 One reliable free-tier setup:
 
 1. Deploy the backend on **Render** (free tier) as a Python web service.
-   - Start command: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
-   - Install command: `pip install -r backend/requirements.txt`
+   - Start command: `python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
+   - Install command:
+     - Without ML (heuristic fallback): `pip install -r backend/requirements.txt`
+     - With trained model (TensorFlow): `pip install -r backend/requirements-ml.txt`
 2. Deploy the frontend on **Vercel** (free tier) from the `frontend/` directory.
    - Add env var: `NEXT_PUBLIC_API_URL=https://<your-render-backend-url>`
 

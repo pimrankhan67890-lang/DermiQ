@@ -28,6 +28,11 @@ archive.zip
 data/train/
 data/_incoming_archive/
 
+# Bundled installers / vendor tools (do not commit)
+tools/node/
+tools/*.msi
+tools/*.zip
+
 # Trained model artifacts (labels.json is OK to commit)
 models/skin_model*.h5
 models/skin_model*.keras
