@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import json
+import logging
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List
@@ -12,11 +14,14 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
 from backend.advice import advice_for_label
-from backend.products import filter_products_for_labels, load_products, public_product
+from backend.products import filter_products_for_top3, load_products, public_product
 from backend.security import InMemoryRateLimiter, RateLimit
 from backend.skin_infer import load_labels, load_tf_model, predict, preprocess_image
 
 app = FastAPI(title="Skin Check API", version="0.1.0")
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("dermiq")
 
 _rate_limiter = InMemoryRateLimiter()
 _predict_rate = RateLimit(
@@ -27,6 +32,7 @@ _max_upload_bytes = int(os.getenv("MAX_UPLOAD_BYTES", str(10 * 1024 * 1024)))  #
 _max_image_pixels = int(os.getenv("MAX_IMAGE_PIXELS", str(12_000_000)))  # ~12 MP
 _landing_dir = Path(__file__).resolve().parent.parent / "landing"
 _landing_index = _landing_dir / "index.html"
+_enable_telemetry = str(os.getenv("ENABLE_TELEMETRY", "0")).strip() in {"1", "true", "yes", "on"}
 
 
 def _cors_allow_origins() -> List[str]:
@@ -76,6 +82,39 @@ def model_status() -> Dict[str, Any]:
     }
 
 
+@app.post("/events")
+async def events(payload: Dict[str, Any]) -> Dict[str, str]:
+    """
+    Optional lightweight telemetry endpoint.
+
+    - Disabled by default. Enable with ENABLE_TELEMETRY=1.
+    - Logs to stdout (Render captures logs).
+    - Do not send images or sensitive content.
+    """
+    if _enable_telemetry:
+        try:
+            logger.info("event=%s", json.dumps(payload, ensure_ascii=False)[:2000])
+        except Exception:
+            logger.info("event=<unserializable>")
+    return {"status": "ok"}
+
+
+@app.post("/feedback")
+async def feedback(payload: Dict[str, Any]) -> Dict[str, str]:
+    """
+    Optional feedback endpoint for improving product/model quality.
+
+    - Disabled by default. Enable with ENABLE_TELEMETRY=1.
+    - Logs to stdout (Render captures logs).
+    """
+    if _enable_telemetry:
+        try:
+            logger.info("feedback=%s", json.dumps(payload, ensure_ascii=False)[:2000])
+        except Exception:
+            logger.info("feedback=<unserializable>")
+    return {"status": "ok"}
+
+
 @app.get("/", include_in_schema=False)
 def root():
     if _landing_index.exists():
@@ -118,8 +157,8 @@ async def predict_endpoint(request: Request, file: UploadFile = File(...)) -> Di
     top_label, top_prob = top3[0]
 
     products_payload = load_products()
-    ranked_labels = [lbl for (lbl, _prob) in top3]
-    products = [public_product(p) for p in filter_products_for_labels(products_payload, ranked_labels, limit=6)]
+    top3_payload = [{"label": lbl, "prob": float(prob)} for lbl, prob in top3]
+    products = [public_product(p) for p in filter_products_for_top3(products_payload, top3_payload, limit=6)]
 
     response: Dict[str, Any] = {
         "top_label": top_label,

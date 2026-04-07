@@ -50,6 +50,7 @@ def main() -> int:
     parser.add_argument("--img-size", type=int, default=224, help="Square image size.")
     parser.add_argument("--batch", type=int, default=32, help="Batch size.")
     parser.add_argument("--epochs", type=int, default=8, help="Training epochs.")
+    parser.add_argument("--finetune-epochs", type=int, default=2, help="Extra fine-tuning epochs (when using pretrained weights).")
     parser.add_argument("--out-model", type=str, default="models/skin_model.keras", help="Output model path.")
     parser.add_argument("--out-labels", type=str, default="models/labels.json", help="Output labels path.")
     args = parser.parse_args()
@@ -205,6 +206,22 @@ def main() -> int:
     ]
 
     model.fit(train_ds, validation_data=val_ds, epochs=int(args.epochs), callbacks=callbacks)
+
+    # Optional fine-tune: unfreeze top layers of the base when we had pretrained weights.
+    finetune_epochs = max(0, int(args.finetune_epochs))
+    if freeze_base and finetune_epochs > 0:
+        base.trainable = True
+        # Keep batch norm frozen for stability.
+        for layer in base.layers:
+            if isinstance(layer, tf.keras.layers.BatchNormalization):
+                layer.trainable = False
+
+        model.compile(
+            optimizer=tf.keras.optimizers.Adam(learning_rate=1e-5),
+            loss=tf.keras.losses.SparseCategoricalCrossentropy(),
+            metrics=["accuracy"],
+        )
+        model.fit(train_ds, validation_data=val_ds, epochs=finetune_epochs)
 
     out_model = Path(args.out_model)
     out_model.parent.mkdir(parents=True, exist_ok=True)

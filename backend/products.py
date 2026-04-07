@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 
 ROOT = Path(__file__).resolve().parent.parent
 PRODUCTS_CANDIDATES = [ROOT / "products.json", ROOT / "product.json"]
@@ -67,6 +67,68 @@ def filter_products_for_labels(payload: Dict[str, Any], labels: List[str], limit
                 if len(out) >= max(0, int(limit)):
                     return out
 
+    return out
+
+
+def filter_products_for_top3(payload: Dict[str, Any], top3: List[Dict[str, Any]], limit: int = 6) -> List[Dict[str, Any]]:
+    """
+    Rank products using top-3 probabilities.
+
+    - Prefer products matching higher-prob labels.
+    - Remove duplicates by product id.
+    - Return up to `limit` items.
+    """
+    items = payload.get("products", [])
+    if not isinstance(items, list):
+        return []
+
+    probs: Dict[str, float] = {}
+    for t in top3 or []:
+        if not isinstance(t, dict):
+            continue
+        lbl = str(t.get("label", "")).strip()
+        try:
+            p = float(t.get("prob", 0.0))
+        except Exception:
+            p = 0.0
+        if lbl:
+            probs[lbl] = max(probs.get(lbl, 0.0), p)
+
+    if not probs:
+        return []
+
+    scored: List[Tuple[float, str, Dict[str, Any]]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        pid = str(item.get("id", "")).strip() or str(item.get("name", "")).strip()
+        if not pid:
+            continue
+        conditions = item.get("conditions", [])
+        if not isinstance(conditions, list):
+            continue
+        conds = {str(c).strip() for c in conditions if str(c).strip()}
+        if not conds:
+            continue
+
+        # Score: sum of probabilities of matched labels + a small bonus for multiple matches.
+        matched = [probs[l] for l in probs.keys() if l in conds]
+        if not matched:
+            continue
+        score = float(sum(matched) + max(0, len(matched) - 1) * 0.05)
+        scored.append((score, pid, item))
+
+    scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
+
+    out: List[Dict[str, Any]] = []
+    seen: set[str] = set()
+    for _score, pid, item in scored:
+        if pid in seen:
+            continue
+        out.append(item)
+        seen.add(pid)
+        if len(out) >= max(0, int(limit)):
+            break
     return out
 
 

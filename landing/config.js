@@ -12,3 +12,7 @@ window.DERMIQ_GITHUB_URL = window.DERMIQ_GITHUB_URL || "";
 
 // Public support/contact email.
 window.DERMIQ_CONTACT_EMAIL = window.DERMIQ_CONTACT_EMAIL || "support@example.com";
+
+// Optional: basic telemetry + feedback (disabled by default).
+// If you enable it, also set ENABLE_TELEMETRY=1 on the backend.
+window.DERMIQ_ENABLE_TELEMETRY = window.DERMIQ_ENABLE_TELEMETRY || false;

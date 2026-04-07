@@ -1,6 +1,7 @@
 param(
   [string]$Dataset = "data/train",
   [int]$Epochs = 8,
+  [int]$FineTuneEpochs = 2,
   [string]$ModelOut = "models/skin_model.h5",
   [string]$LabelsOut = "models/labels.json",
   [string]$VenvDir = ".venv"
@@ -51,7 +52,7 @@ try {
 }
 
 Write-Host "Training..." -ForegroundColor Yellow
-python train.py --dataset $Dataset --epochs $Epochs --out-model $ModelOut --out-labels $LabelsOut
+python train.py --dataset $Dataset --epochs $Epochs --finetune-epochs $FineTuneEpochs --out-model $ModelOut --out-labels $LabelsOut
 
 Write-Host "Done." -ForegroundColor Green
 Write-Host "Model written to: $ModelOut"

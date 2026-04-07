@@ -31,6 +31,11 @@ onReady(() => {
   const apiStatus = document.getElementById("apiStatus");
   const apiError = document.getElementById("apiError");
   const modelStatus = document.getElementById("modelStatus");
+  const fbUp = document.getElementById("fbUp");
+  const fbDown = document.getElementById("fbDown");
+  const fbText = document.getElementById("fbText");
+  const fbSend = document.getElementById("fbSend");
+  const fbStatus = document.getElementById("fbStatus");
 
   const topLabel = document.getElementById("topLabel");
   const topProb = document.getElementById("topProb");
@@ -76,6 +81,34 @@ onReady(() => {
     if (!modelStatus) return;
     const s = safeText(message);
     modelStatus.textContent = s;
+  }
+
+  function telemetryEnabled() {
+    return Boolean(window.DERMIQ_ENABLE_TELEMETRY);
+  }
+
+  async function postJson(path, payload) {
+    try {
+      const base = apiBase();
+      await fetch(`${base}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload || {}),
+        keepalive: true,
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  function track(eventName, props) {
+    if (!telemetryEnabled()) return;
+    postJson("/events", {
+      event: safeText(eventName),
+      ts: Date.now(),
+      path: window.location.pathname + window.location.hash,
+      props: props || {},
+    });
   }
 
   function apiBase() {
@@ -399,13 +432,49 @@ onReady(() => {
 
       renderProducts(data?.products, data?.top3);
       setStatus("API: done ✅");
+      track("predict_success", {
+        top_label: safeText(data?.top_label),
+        top_prob: Number(data?.top_prob),
+        model_backend: safeText(data?.model_backend),
+      });
     } catch (e) {
       setStatus("API: error ❌");
       setError(`Prediction failed: ${e?.message ? String(e.message) : "Unknown error"}`);
       clearProducts("");
+      track("predict_error", { message: e?.message ? String(e.message) : "Unknown error" });
     }
   }
 
   // Initial health check so the UI tells you what to start.
   checkApi().catch(() => {});
+  track("page_view", { host: window.location.host });
+
+  let lastThumb = 0;
+  function setFbStatus(msg) {
+    if (!fbStatus) return;
+    fbStatus.textContent = safeText(msg);
+  }
+  fbUp?.addEventListener("click", () => {
+    lastThumb = 1;
+    setFbStatus("Selected 👍");
+  });
+  fbDown?.addEventListener("click", () => {
+    lastThumb = -1;
+    setFbStatus("Selected 👎");
+  });
+  fbSend?.addEventListener("click", async () => {
+    if (!telemetryEnabled()) {
+      setFbStatus("Feedback disabled.");
+      return;
+    }
+    const text = safeText(fbText?.value);
+    setFbStatus("Sending…");
+    await postJson("/feedback", {
+      ts: Date.now(),
+      rating: lastThumb,
+      message: text,
+    });
+    setFbStatus("Thanks!");
+    if (fbText) fbText.value = "";
+  });
 });
