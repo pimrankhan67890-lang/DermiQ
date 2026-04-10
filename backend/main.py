@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import json
 import logging
+import uuid
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List
@@ -16,7 +17,8 @@ from PIL import Image
 from backend.advice import advice_for_label
 from backend.products import filter_products_for_top3, load_products, public_product
 from backend.security import InMemoryRateLimiter, RateLimit
-from backend.skin_infer import load_labels, load_tf_model, predict, preprocess_image
+from backend.quality import check_image_quality
+from backend.skin_infer import load_labels, load_tf_model, predict_pil
 from backend.tracker import assess_escalation, add_event, create_session, delete_session, get_events
 
 app = FastAPI(title="Skin Check API", version="0.1.0")
@@ -163,6 +165,7 @@ def root():
 
 @app.post("/predict")
 async def predict_endpoint(request: Request, file: UploadFile = File(...)) -> Dict[str, Any]:
+    scan_id = uuid.uuid4().hex
     ip = request.client.host if request.client else ""
     if not _rate_limiter.allow(f"predict:{ip}", _predict_rate):
         raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
@@ -189,9 +192,21 @@ async def predict_endpoint(request: Request, file: UploadFile = File(...)) -> Di
         # If size info is unavailable, continue; Pillow will still validate decode during processing.
         pass
 
+    # Quick, safety-first image quality gate (prevents garbage results).
+    q = check_image_quality(pil_img)
+    if not q.ok:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "image_quality",
+                "reason": q.code,
+                "message": q.message,
+                "metrics": q.metrics,
+            },
+        )
+
     labels = load_labels()
-    image_arr = preprocess_image(pil_img)
-    result = predict(image_arr, labels=labels)
+    result = predict_pil(pil_img, labels=labels)
     top3 = result.top3()
     top_label, top_prob = top3[0]
 
@@ -200,6 +215,7 @@ async def predict_endpoint(request: Request, file: UploadFile = File(...)) -> Di
     products = [public_product(p) for p in filter_products_for_top3(products_payload, top3_payload, limit=6)]
 
     response: Dict[str, Any] = {
+        "scan_id": scan_id,
         "top_label": top_label,
         "top_prob": float(top_prob),
         "top3": [{"label": lbl, "prob": float(prob)} for lbl, prob in top3],
@@ -227,6 +243,7 @@ async def predict_endpoint(request: Request, file: UploadFile = File(...)) -> Di
                     "top3": [{"label": lbl, "prob": float(prob)} for lbl, prob in top3],
                     "model_backend": result.backend,
                     "product_ids": [p.get("id") for p in products if isinstance(p, dict)],
+                    "scan_id": scan_id,
                 },
             )
         except Exception:

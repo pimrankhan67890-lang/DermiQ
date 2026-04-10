@@ -31,6 +31,7 @@ onReady(() => {
   const apiStatus = document.getElementById("apiStatus");
   const apiError = document.getElementById("apiError");
   const modelStatus = document.getElementById("modelStatus");
+  const scanStage = document.getElementById("scanStage");
   const fbUp = document.getElementById("fbUp");
   const fbDown = document.getElementById("fbDown");
   const fbText = document.getElementById("fbText");
@@ -38,6 +39,7 @@ onReady(() => {
   const fbStatus = document.getElementById("fbStatus");
 
   // Optional: server-side routine tracking (timeline) for this device.
+  const trackerCard = document.getElementById("trackerCard");
   const trackerEnable = document.getElementById("trackerEnable");
   const trackerRefresh = document.getElementById("trackerRefresh");
   const trackerDelete = document.getElementById("trackerDelete");
@@ -81,6 +83,8 @@ onReady(() => {
     },
   ];
 
+  let lastScan = null;
+
   function setError(message) {
     if (!apiError) return;
     if (!message) {
@@ -94,6 +98,11 @@ onReady(() => {
 
   function setStatus(message) {
     if (apiStatus) apiStatus.textContent = message;
+  }
+
+  function setStage(message) {
+    if (!scanStage) return;
+    scanStage.textContent = safeText(message);
   }
 
   function setModelStatus(message) {
@@ -168,6 +177,67 @@ onReady(() => {
 
   function safeText(x) {
     return String(x ?? "").trim();
+  }
+
+  async function clientQualityCheck(file) {
+    try {
+      if (!file) return { ok: false, message: "No file selected." };
+      if (file.size > 10 * 1024 * 1024) return { ok: false, message: "File too large (max 10MB)." };
+
+      const bmp = await createImageBitmap(file);
+      const w = bmp.width || 0;
+      const h = bmp.height || 0;
+      if (Math.min(w, h) < 160) return { ok: false, message: "Photo is too small. Use a closer photo." };
+
+      const maxSide = 256;
+      const scale = maxSide / Math.max(w, h);
+      const cw = Math.max(1, Math.round(w * Math.min(1, scale)));
+      const ch = Math.max(1, Math.round(h * Math.min(1, scale)));
+      const canvas = document.createElement("canvas");
+      canvas.width = cw;
+      canvas.height = ch;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) return { ok: true, message: "" };
+      ctx.drawImage(bmp, 0, 0, cw, ch);
+      const data = ctx.getImageData(0, 0, cw, ch).data;
+
+      let sum = 0;
+      const gray = new Float32Array(cw * ch);
+      for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const y = 0.299 * r + 0.587 * g + 0.114 * b;
+        gray[p] = y;
+        sum += y;
+      }
+      const mean = sum / gray.length / 255.0;
+      if (mean < 0.18) return { ok: false, message: "Photo is too dark. Move to better lighting and try again." };
+      if (mean > 0.98) return { ok: false, message: "Photo is too bright/overexposed. Avoid glare and try again." };
+
+      // Laplacian variance (blur). Conservative threshold to reduce false rejects.
+      let lapSum = 0;
+      let lapSum2 = 0;
+      let n = 0;
+      for (let y = 1; y < ch - 1; y++) {
+        for (let x = 1; x < cw - 1; x++) {
+          const c = gray[y * cw + x];
+          const lap = -4 * c + gray[y * cw + (x - 1)] + gray[y * cw + (x + 1)] + gray[(y - 1) * cw + x] + gray[(y + 1) * cw + x];
+          lapSum += lap;
+          lapSum2 += lap * lap;
+          n++;
+        }
+      }
+      if (n > 0) {
+        const varLap = lapSum2 / n - (lapSum / n) * (lapSum / n);
+        if (varLap < 60) return { ok: false, message: "Photo looks too blurry. Hold steady and make sure the skin is in focus." };
+      }
+
+      return { ok: true, message: "" };
+    } catch {
+      // If the browser can't compute quality, don't block the user.
+      return { ok: true, message: "" };
+    }
   }
 
   const TRACKER_STORAGE_KEY = "dermiq_session_id_v1";
@@ -598,9 +668,21 @@ onReady(() => {
 
   async function runPrediction(file) {
     setError("");
+    setStage("");
+
+    setStage("Checking photo quality…");
+    const q = await clientQualityCheck(file);
+    if (!q.ok) {
+      setStatus("API: waiting for a better photo");
+      setError(q.message);
+      clearProducts("");
+      return;
+    }
+
     const ok = await checkApi();
     if (!ok) return;
 
+    setStage("Preprocessing…");
     setStatus("API: analyzing…");
     if (topLabel) topLabel.textContent = "Analyzing…";
     if (topProb) topProb.textContent = "";
@@ -616,12 +698,28 @@ onReady(() => {
       const headers = {};
       const sid = getSessionId();
       if (sid) headers["X-Session-Id"] = sid;
+      setStage("Running model…");
       const resp = await fetch(`${base}/predict`, { method: "POST", body: form, headers });
       if (!resp.ok) {
+        const ct = String(resp.headers.get("content-type") || "");
+        if (ct.includes("application/json")) {
+          const j = await resp.json().catch(() => null);
+          const detail = j?.detail;
+          if (detail && typeof detail === "object" && detail.code === "image_quality") {
+            throw new Error(detail.message || "Photo quality issue. Please try again.");
+          }
+        }
         const text = await resp.text().catch(() => "");
         throw new Error(text || `HTTP ${resp.status}`);
       }
       const data = await resp.json();
+      lastScan = {
+        scan_id: safeText(data?.scan_id),
+        top_label: safeText(data?.top_label),
+        top_prob: Number(data?.top_prob),
+        top3: Array.isArray(data?.top3) ? data.top3 : [],
+        model_backend: safeText(data?.model_backend),
+      };
 
       const top = labelToTitle(data?.top_label);
       const prob = fmtPct(data?.top_prob);
@@ -646,19 +744,24 @@ onReady(() => {
       const backend = String(data?.model_backend || "").trim();
       const disclaimer = String(data?.disclaimer || "").trim();
       if (notesText) {
-        notesText.textContent = [backend ? `Model: ${backend}.` : "", notes, disclaimer].filter(Boolean).join(" ");
+        const noteLine = backend === "tensorflow" ? "" : notes;
+        notesText.textContent = [backend ? `Model: ${backend}.` : "", noteLine, disclaimer].filter(Boolean).join(" ");
       }
 
+      setStage("Matching products…");
       renderProducts(data?.products, data?.top3);
       setStatus("API: done ✅");
+      setStage("Done.");
       track("predict_success", {
         top_label: safeText(data?.top_label),
         top_prob: Number(data?.top_prob),
         model_backend: safeText(data?.model_backend),
       });
       if (getSessionId()) refreshTimeline().catch(() => {});
+      if (trackerCard) trackerCard.hidden = false;
     } catch (e) {
       setStatus("API: error ❌");
+      setStage("");
       setError(`Prediction failed: ${e?.message ? String(e.message) : "Unknown error"}`);
       clearProducts("");
       track("predict_error", { message: e?.message ? String(e.message) : "Unknown error" });
@@ -677,7 +780,9 @@ onReady(() => {
   }
 
   updateTrackerUiState();
-  if (getSessionId()) refreshTimeline().catch(() => {});
+  const existingSid = getSessionId();
+  if (existingSid && trackerCard) trackerCard.hidden = false;
+  if (existingSid) refreshTimeline().catch(() => {});
 
   if (symptomSeverity && symptomSeverityVal) {
     const sync = () => (symptomSeverityVal.textContent = safeText(symptomSeverity.value));
@@ -689,6 +794,7 @@ onReady(() => {
     setTrackerBanner("");
     const sid = await ensureSession();
     updateTrackerUiState();
+    if (sid && trackerCard) trackerCard.hidden = false;
     if (sid) await refreshTimeline();
   });
 
@@ -789,6 +895,7 @@ onReady(() => {
       ts: Date.now(),
       rating: lastThumb,
       message: text,
+      scan: lastScan || undefined,
     });
     setFbStatus("Thanks!");
     if (fbText) fbText.value = "";

@@ -4,7 +4,7 @@ import json
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from PIL import Image, ImageOps
@@ -26,6 +26,11 @@ DEFAULT_LABELS = [
     "seborrheic_dermatitis",
     "normal",
 ]
+
+
+_CACHED_MODEL: Optional[Any] = None
+_CACHED_NOTE: str = ""
+_CACHED_CHECKED: bool = False
 
 
 def _softmax(logits: np.ndarray) -> np.ndarray:
@@ -66,6 +71,32 @@ def preprocess_image(pil_img: Image.Image, size: int = 224) -> np.ndarray:
     img = ImageOps.fit(img, (size, size), method=Image.Resampling.LANCZOS)
     arr = np.asarray(img, dtype=np.float32) / 255.0
     return arr
+
+
+def _model_input_size(model: Any, default: int = 224) -> int:
+    """
+    Try to infer square input size from a Keras model.
+    Returns default when unknown.
+    """
+    try:
+        shape = getattr(model, "input_shape", None)
+        if not shape and getattr(model, "inputs", None):
+            shape = getattr(model.inputs[0], "shape", None)
+        if isinstance(shape, (list, tuple)) and len(shape) >= 3:
+            # Common: (None, H, W, C) or (None, H, W)
+            h = shape[1]
+            w = shape[2] if len(shape) >= 3 else None
+            if isinstance(h, (int, float)) and isinstance(w, (int, float)) and h and w:
+                return int(min(h, w))
+    except Exception:
+        pass
+    return int(default)
+
+
+def preprocess_for_model(pil_img: Image.Image, model: Optional[Any]) -> np.ndarray:
+    size = _model_input_size(model, default=224) if model is not None else 224
+    size = max(64, min(int(size), 1024))
+    return preprocess_image(pil_img, size=size)
 
 
 class HeuristicModel:
@@ -114,24 +145,41 @@ class HeuristicModel:
 
 
 def load_tf_model() -> Tuple[Optional[Any], str]:
+    global _CACHED_MODEL, _CACHED_NOTE, _CACHED_CHECKED
+    if _CACHED_CHECKED:
+        return _CACHED_MODEL, _CACHED_NOTE
+
     try:
         import tensorflow as tf  # type: ignore
     except Exception:
-        return None, "TensorFlow not installed; using heuristic fallback."
+        _CACHED_MODEL = None
+        _CACHED_NOTE = "TensorFlow not installed; using heuristic fallback."
+        _CACHED_CHECKED = True
+        return _CACHED_MODEL, _CACHED_NOTE
 
     last_err: Optional[str] = None
     for p in DEFAULT_MODEL_PATHS:
         if p.exists():
             try:
                 model = tf.keras.models.load_model(p)
-                return model, f"Loaded model from {p.name}."
+                _CACHED_MODEL = model
+                _CACHED_NOTE = f"Loaded model from {p.name}."
+                _CACHED_CHECKED = True
+                return _CACHED_MODEL, _CACHED_NOTE
             except Exception as e:
                 # If one candidate is corrupt/incompatible, try the next candidate.
                 last_err = f"Found {p.name} but failed to load: {e}."
                 continue
     if last_err:
-        return None, f"{last_err} Using fallback."
-    return None, "No trained model found; using heuristic fallback."
+        _CACHED_MODEL = None
+        _CACHED_NOTE = f"{last_err} Using fallback."
+        _CACHED_CHECKED = True
+        return _CACHED_MODEL, _CACHED_NOTE
+
+    _CACHED_MODEL = None
+    _CACHED_NOTE = "No trained model found; using heuristic fallback."
+    _CACHED_CHECKED = True
+    return _CACHED_MODEL, _CACHED_NOTE
 
 
 @dataclass
@@ -167,6 +215,48 @@ def predict(image_arr: np.ndarray, labels: List[str]) -> Prediction:
                 notes=f"TF prediction failed ({e}); using fallback.",
             )
 
+    return Prediction(
+        labels=labels,
+        probs=HeuristicModel().predict_proba(image_arr, labels),
+        backend="heuristic",
+        notes=note,
+    )
+
+
+def predict_pil(pil_img: Image.Image, labels: List[str]) -> Prediction:
+    """
+    Prediction entrypoint that always preprocesses to the model's expected input size.
+    This avoids shape mismatches such as expected 160x160 but got 224x224.
+    """
+    model, note = load_tf_model()
+    if model is not None:
+        try:
+            image_arr = preprocess_for_model(pil_img, model)
+            x = np.expand_dims(image_arr, axis=0).astype(np.float32)
+            preds = np.asarray(model.predict(x, verbose=0)).reshape(-1)
+            if preds.size != len(labels):
+                labels = labels[: preds.size] if preds.size > 0 else labels
+                preds = preds[: len(labels)]
+            probs = preds.astype(np.float64)
+            s = float(np.sum(probs)) if probs.size else 0.0
+            if np.any(probs < 0) or (s != 0.0 and not math.isclose(s, 1.0, rel_tol=0.0, abs_tol=1e-2)):
+                probs = _softmax(probs)
+            return Prediction(labels=labels, probs=probs, backend="tensorflow", notes=note)
+        except Exception as e:
+            # If TF fails, fall back to heuristic on a safe input size.
+            try:
+                image_arr = preprocess_image(pil_img, size=224)
+            except Exception:
+                image_arr = np.zeros((224, 224, 3), dtype=np.float32)
+            return Prediction(
+                labels=labels,
+                probs=HeuristicModel().predict_proba(image_arr, labels),
+                backend="heuristic",
+                notes=f"TF prediction failed ({e}); using fallback.",
+            )
+
+    # No TF model; heuristic on a safe input size.
+    image_arr = preprocess_image(pil_img, size=224)
     return Prediction(
         labels=labels,
         probs=HeuristicModel().predict_proba(image_arr, labels),
