@@ -1258,3 +1258,106 @@ footer {
     width: 240px;
   }
 }
+
+/* Tracker (optional) */
+.tracker-details {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.tracker-details > summary {
+  cursor: pointer;
+  user-select: none;
+}
+.tracker-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 12px;
+}
+.tracker-block {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(10, 21, 32, 0.35);
+  padding: 14px;
+}
+.tracker-label {
+  font-family: "Syne", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 10px;
+  letter-spacing: -0.01em;
+}
+.tracker-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 10px;
+}
+.tracker-input {
+  flex: 1;
+  min-width: 160px;
+  border: 1px solid rgba(0, 229, 196, 0.25);
+  background: rgba(10, 21, 32, 0.5);
+  color: var(--white);
+  border-radius: 999px;
+  padding: 8px 12px;
+  outline: none;
+  font-family: inherit;
+}
+.tracker-input option {
+  background: var(--surface);
+  color: var(--white);
+}
+.tracker-flags {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+.tracker-flags input {
+  margin-right: 6px;
+  accent-color: var(--coral);
+}
+.tracker-timeline {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.timeline-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(10, 21, 32, 0.35);
+  margin-top: 10px;
+}
+.timeline-kind {
+  color: var(--teal);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.timeline-msg {
+  color: var(--white);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-top: 4px;
+}
+.timeline-ts {
+  color: var(--muted);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+@media (max-width: 960px) {
+  .tracker-grid {
+    grid-template-columns: 1fr;
+  }
+}

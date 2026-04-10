@@ -37,6 +37,25 @@ onReady(() => {
   const fbSend = document.getElementById("fbSend");
   const fbStatus = document.getElementById("fbStatus");
 
+  // Optional: server-side routine tracking (timeline) for this device.
+  const trackerEnable = document.getElementById("trackerEnable");
+  const trackerRefresh = document.getElementById("trackerRefresh");
+  const trackerDelete = document.getElementById("trackerDelete");
+  const trackerStatus = document.getElementById("trackerStatus");
+  const trackerBanner = document.getElementById("trackerBanner");
+  const trackerTimeline = document.getElementById("trackerTimeline");
+  const routineProduct = document.getElementById("routineProduct");
+  const routineAction = document.getElementById("routineAction");
+  const routineFrequency = document.getElementById("routineFrequency");
+  const routineNotes = document.getElementById("routineNotes");
+  const routineSave = document.getElementById("routineSave");
+  const routineStatus = document.getElementById("routineStatus");
+  const symptomSeverity = document.getElementById("symptomSeverity");
+  const symptomSeverityVal = document.getElementById("symptomSeverityVal");
+  const symptomNotes = document.getElementById("symptomNotes");
+  const symptomSave = document.getElementById("symptomSave");
+  const symptomStatus = document.getElementById("symptomStatus");
+
   const topLabel = document.getElementById("topLabel");
   const topProb = document.getElementById("topProb");
   const adviceText = document.getElementById("adviceText");
@@ -149,6 +168,203 @@ onReady(() => {
 
   function safeText(x) {
     return String(x ?? "").trim();
+  }
+
+  const TRACKER_STORAGE_KEY = "dermiq_session_id_v1";
+
+  function setTrackerBanner(message) {
+    if (!trackerBanner) return;
+    const s = safeText(message);
+    if (!s) {
+      trackerBanner.hidden = true;
+      trackerBanner.textContent = "";
+      return;
+    }
+    trackerBanner.hidden = false;
+    trackerBanner.textContent = s;
+  }
+
+  function setTrackerStatus(message) {
+    if (!trackerStatus) return;
+    trackerStatus.textContent = safeText(message);
+  }
+
+  function setRoutineStatus(message) {
+    if (!routineStatus) return;
+    routineStatus.textContent = safeText(message);
+  }
+
+  function setSymptomStatus(message) {
+    if (!symptomStatus) return;
+    symptomStatus.textContent = safeText(message);
+  }
+
+  function getSessionId() {
+    try {
+      return safeText(window.localStorage.getItem(TRACKER_STORAGE_KEY));
+    } catch {
+      return "";
+    }
+  }
+
+  function setSessionId(sessionId) {
+    try {
+      window.localStorage.setItem(TRACKER_STORAGE_KEY, safeText(sessionId));
+    } catch {
+      // ignore
+    }
+  }
+
+  function clearSessionId() {
+    try {
+      window.localStorage.removeItem(TRACKER_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+  }
+
+  function fmtDate(tsSeconds) {
+    const n = Number(tsSeconds);
+    if (!Number.isFinite(n) || n <= 0) return "";
+    const d = new Date(n * 1000);
+    return d.toLocaleString();
+  }
+
+  function escapeHtml(s) {
+    return String(s || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('\"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function renderTimeline(events) {
+    if (!trackerTimeline) return;
+    const list = Array.isArray(events) ? events.slice() : [];
+    if (!list.length) {
+      trackerTimeline.innerHTML = `<div class="muted">No timeline entries yet.</div>`;
+      return;
+    }
+    // API returns newest first; render oldest first for readability.
+    list.reverse();
+    trackerTimeline.innerHTML = list
+      .map((e) => {
+        const kind = safeText(e?.kind) || "event";
+        const ts = fmtDate(e?.ts);
+        const p = e?.payload || {};
+        let msg = "";
+        if (kind === "analysis") {
+          msg = `Analysis: <b>${escapeHtml(labelToTitle(p?.top_label))}</b> (${escapeHtml(fmtPct(p?.top_prob))})`;
+        } else if (kind === "routine") {
+          const action = escapeHtml(p?.action || "");
+          const name = escapeHtml(p?.product || "");
+          const freq = escapeHtml(p?.frequency || "");
+          msg = `Routine: <b>${name || "Product"}</b>${action ? ` (${action})` : ""}${freq ? ` - ${freq}` : ""}`;
+          if (p?.notes) msg += `<div class="muted" style="margin-top:4px;">${escapeHtml(p.notes)}</div>`;
+        } else if (kind === "symptom") {
+          const sev = Number(p?.severity);
+          msg = `Symptoms: severity <b>${Number.isFinite(sev) ? sev : 0}</b>/10`;
+          if (p?.notes) msg += `<div class="muted" style="margin-top:4px;">${escapeHtml(p.notes)}</div>`;
+        } else if (kind === "red_flag") {
+          const flags = Array.isArray(p?.flags) ? p.flags : [];
+          const on = flags.filter((x) => Boolean(x));
+          msg = `Red flags: <b>${on.length ? "YES" : "no"}</b>`;
+        } else {
+          msg = escapeHtml(JSON.stringify(e?.payload || {}));
+        }
+
+        return `
+          <div class="timeline-item">
+            <div>
+              <div class="timeline-kind">${escapeHtml(kind)}</div>
+              <div class="timeline-msg">${msg}</div>
+            </div>
+            <div class="timeline-ts">${escapeHtml(ts)}</div>
+          </div>
+        `;
+      })
+      .join("");
+  }
+
+  async function ensureSession() {
+    const existing = getSessionId();
+    if (existing) return existing;
+    const ok = await checkApi();
+    if (!ok) return "";
+    setTrackerStatus("Creating sessionâ€¦");
+    try {
+      const base = apiBase();
+      const r = await fetch(`${base}/tracker/session`, { method: "POST" });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const j = await r.json();
+      const sid = safeText(j?.session_id);
+      if (!sid) throw new Error("No session id");
+      setSessionId(sid);
+      setTrackerStatus("Tracking enabled.");
+      return sid;
+    } catch {
+      setTrackerStatus("Could not enable tracking.");
+      return "";
+    }
+  }
+
+  async function postTracker(kind, payload) {
+    const sid = getSessionId();
+    if (!sid) return false;
+    const ok = await checkApi();
+    if (!ok) return false;
+    try {
+      const base = apiBase();
+      const body = {
+        session_id: sid,
+        kind: safeText(kind),
+        ts: Math.floor(Date.now() / 1000),
+        payload: payload || {},
+      };
+      const r = await fetch(`${base}/tracker/event`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      return r.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  async function refreshTimeline() {
+    const sid = getSessionId();
+    if (!sid) {
+      setTrackerStatus("Tracking is off.");
+      setTrackerBanner("");
+      renderTimeline([]);
+      return;
+    }
+    const ok = await checkApi();
+    if (!ok) return;
+    setTrackerStatus("Loading timelineâ€¦");
+    try {
+      const base = apiBase();
+      const r = await fetch(`${base}/tracker/timeline?session_id=${encodeURIComponent(sid)}&limit=200`, { method: "GET" });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const j = await r.json();
+      const events = Array.isArray(j?.events) ? j.events : [];
+      const esc = j?.escalation || {};
+      const level = safeText(esc?.level);
+      const reason = safeText(esc?.reason);
+      if (level === "urgent") {
+        setTrackerBanner(`Safety check: please consult a clinician promptly. ${reason}`);
+      } else if (level === "caution") {
+        setTrackerBanner(`Safety check: consider consulting a clinician. ${reason}`);
+      } else {
+        setTrackerBanner("");
+      }
+      renderTimeline(events);
+      setTrackerStatus("Timeline updated.");
+    } catch {
+      setTrackerStatus("Timeline error.");
+    }
   }
 
   function productIcon(productId) {
@@ -397,7 +613,10 @@ onReady(() => {
     form.append("file", file, file.name || "upload.jpg");
 
     try {
-      const resp = await fetch(`${base}/predict`, { method: "POST", body: form });
+      const headers = {};
+      const sid = getSessionId();
+      if (sid) headers["X-Session-Id"] = sid;
+      const resp = await fetch(`${base}/predict`, { method: "POST", body: form, headers });
       if (!resp.ok) {
         const text = await resp.text().catch(() => "");
         throw new Error(text || `HTTP ${resp.status}`);
@@ -437,6 +656,7 @@ onReady(() => {
         top_prob: Number(data?.top_prob),
         model_backend: safeText(data?.model_backend),
       });
+      if (getSessionId()) refreshTimeline().catch(() => {});
     } catch (e) {
       setStatus("API: error ❌");
       setError(`Prediction failed: ${e?.message ? String(e.message) : "Unknown error"}`);
@@ -448,6 +668,102 @@ onReady(() => {
   // Initial health check so the UI tells you what to start.
   checkApi().catch(() => {});
   track("page_view", { host: window.location.host });
+
+  // Tracker wiring (optional).
+  function updateTrackerUiState() {
+    const sid = getSessionId();
+    if (trackerEnable) trackerEnable.textContent = sid ? "Tracking enabled" : "Enable tracking";
+    setTrackerStatus(sid ? "Tracking is on for this device." : "Tracking is off.");
+  }
+
+  updateTrackerUiState();
+  if (getSessionId()) refreshTimeline().catch(() => {});
+
+  if (symptomSeverity && symptomSeverityVal) {
+    const sync = () => (symptomSeverityVal.textContent = safeText(symptomSeverity.value));
+    symptomSeverity.addEventListener("input", sync);
+    sync();
+  }
+
+  trackerEnable?.addEventListener("click", async () => {
+    setTrackerBanner("");
+    const sid = await ensureSession();
+    updateTrackerUiState();
+    if (sid) await refreshTimeline();
+  });
+
+  trackerRefresh?.addEventListener("click", async () => {
+    await refreshTimeline();
+  });
+
+  trackerDelete?.addEventListener("click", async () => {
+    const sid = getSessionId();
+    if (!sid) {
+      setTrackerStatus("Nothing to delete.");
+      return;
+    }
+    if (!window.confirm("Delete your tracking data for this device on this server?")) return;
+    const ok = await checkApi();
+    if (!ok) return;
+    setTrackerStatus("Deletingâ€¦");
+    try {
+      const base = apiBase();
+      const r = await fetch(`${base}/tracker/delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sid }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      clearSessionId();
+      updateTrackerUiState();
+      setTrackerBanner("");
+      renderTimeline([]);
+      setTrackerStatus("Deleted.");
+    } catch {
+      setTrackerStatus("Delete failed.");
+    }
+  });
+
+  routineSave?.addEventListener("click", async () => {
+    const sid = await ensureSession();
+    if (!sid) return;
+    const product = safeText(routineProduct?.value);
+    const action = safeText(routineAction?.value);
+    const frequency = safeText(routineFrequency?.value);
+    const notes = safeText(routineNotes?.value);
+    if (!product) {
+      setRoutineStatus("Add a product name.");
+      return;
+    }
+    setRoutineStatus("Savingâ€¦");
+    const ok = await postTracker("routine", { product, action, frequency, notes });
+    setRoutineStatus(ok ? "Saved." : "Save failed.");
+    if (ok) {
+      if (routineProduct) routineProduct.value = "";
+      if (routineNotes) routineNotes.value = "";
+      await refreshTimeline();
+    }
+  });
+
+  symptomSave?.addEventListener("click", async () => {
+    const sid = await ensureSession();
+    if (!sid) return;
+    const severity = Number(symptomSeverity?.value || 0);
+    const notes = safeText(symptomNotes?.value);
+    const flags = Array.from(document.querySelectorAll('.tracker-flags input[type="checkbox"][data-flag]')).map((el) =>
+      Boolean(el && el.checked),
+    );
+    setSymptomStatus("Savingâ€¦");
+    if (flags.some(Boolean)) {
+      await postTracker("red_flag", { flags });
+    }
+    const ok = await postTracker("symptom", { severity, notes });
+    setSymptomStatus(ok ? "Saved." : "Save failed.");
+    if (ok) {
+      if (symptomNotes) symptomNotes.value = "";
+      await refreshTimeline();
+    }
+  });
 
   let lastThumb = 0;
   function setFbStatus(msg) {

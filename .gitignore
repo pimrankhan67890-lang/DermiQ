@@ -20,6 +20,7 @@ frontend/out/
 frontend/.env.local
 
 backend/.env
+backend_data/
 
 .DS_Store
 

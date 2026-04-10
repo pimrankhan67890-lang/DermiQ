@@ -115,6 +115,71 @@
               </div>
             </div>
           </div>
+
+          <div class="guidance-card" id="trackerCard">
+            <div class="guidance-label">Routine tracking (optional)</div>
+            <p class="guidance-text">
+              Track what products you use and how symptoms change over time. This helps DermIQ show safer next steps and suggest when to consult
+              a clinician. No photos are stored - only your results and notes.
+            </p>
+            <div class="api-error" id="trackerBanner" hidden></div>
+            <div style="margin-top: 12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+              <button class="product-link" id="trackerEnable" type="button" style="background: transparent;">Enable tracking</button>
+              <button class="product-link" id="trackerRefresh" type="button" style="background: transparent;">Refresh timeline</button>
+              <button class="product-link" id="trackerDelete" type="button" style="background: transparent;">Delete my data</button>
+              <span class="footer-text" id="trackerStatus" style="margin:0;"></span>
+            </div>
+
+            <details id="trackerDetails" class="tracker-details">
+              <summary class="footer-text">Add today's entry</summary>
+              <div class="tracker-grid">
+                <div class="tracker-block">
+                  <div class="tracker-label">Product / routine</div>
+                  <div class="tracker-row">
+                    <input id="routineProduct" class="tracker-input" type="text" placeholder="Product name (e.g., gentle cleanser)" />
+                    <select id="routineAction" class="tracker-input">
+                      <option value="start">Start</option>
+                      <option value="continue">Continue</option>
+                      <option value="stop">Stop</option>
+                    </select>
+                  </div>
+                  <div class="tracker-row">
+                    <input id="routineFrequency" class="tracker-input" type="text" placeholder="How often? (e.g., 1x daily)" />
+                    <input id="routineNotes" class="tracker-input" type="text" placeholder="Notes (optional)" />
+                  </div>
+                  <div style="margin-top: 10px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                    <button class="product-link" id="routineSave" type="button" style="background: transparent;">Save routine â†’</button>
+                    <span class="footer-text" id="routineStatus" style="margin:0;"></span>
+                  </div>
+                </div>
+
+                <div class="tracker-block">
+                  <div class="tracker-label">Symptoms</div>
+                  <div class="tracker-row">
+                    <label class="footer-text" style="margin:0;">Severity:</label>
+                    <input id="symptomSeverity" type="range" min="0" max="10" step="1" value="0" style="flex: 1;" />
+                    <span class="footer-text" id="symptomSeverityVal" style="margin:0; min-width: 24px; text-align:right;">0</span>
+                  </div>
+                  <div class="tracker-row">
+                    <input id="symptomNotes" class="tracker-input" type="text" placeholder="What changed? (optional)" />
+                  </div>
+                  <div class="tracker-flags">
+                    <label><input type="checkbox" data-flag="fever" /> Fever</label>
+                    <label><input type="checkbox" data-flag="spreading" /> Spreading fast</label>
+                    <label><input type="checkbox" data-flag="bleeding" /> Bleeding</label>
+                    <label><input type="checkbox" data-flag="eye" /> Eye involvement</label>
+                    <label><input type="checkbox" data-flag="severe_pain" /> Severe pain</label>
+                  </div>
+                  <div style="margin-top: 10px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                    <button class="product-link" id="symptomSave" type="button" style="background: transparent;">Save symptoms â†’</button>
+                    <span class="footer-text" id="symptomStatus" style="margin:0;"></span>
+                  </div>
+                </div>
+              </div>
+            </details>
+
+            <div id="trackerTimeline" class="tracker-timeline" aria-live="polite"></div>
+          </div>
         </div>
       </div>
     </section>

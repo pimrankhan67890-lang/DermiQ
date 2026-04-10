@@ -17,6 +17,7 @@ from backend.advice import advice_for_label
 from backend.products import filter_products_for_top3, load_products, public_product
 from backend.security import InMemoryRateLimiter, RateLimit
 from backend.skin_infer import load_labels, load_tf_model, predict, preprocess_image
+from backend.tracker import assess_escalation, add_event, create_session, delete_session, get_events
 
 app = FastAPI(title="Skin Check API", version="0.1.0")
 
@@ -115,6 +116,44 @@ async def feedback(payload: Dict[str, Any]) -> Dict[str, str]:
     return {"status": "ok"}
 
 
+@app.post("/tracker/session")
+async def tracker_session() -> Dict[str, str]:
+    return {"session_id": create_session()}
+
+
+@app.post("/tracker/event")
+async def tracker_event(payload: Dict[str, Any]) -> Dict[str, str]:
+    sid = str(payload.get("session_id", "")).strip()
+    kind = str(payload.get("kind", "")).strip()
+    data = payload.get("payload", {})
+    if not isinstance(data, dict):
+        data = {"value": data}
+    ts = payload.get("ts")
+    try:
+        ts_i = int(ts) if ts is not None else None
+    except Exception:
+        ts_i = None
+    add_event(sid, kind, data, ts=ts_i)
+    return {"status": "ok"}
+
+
+@app.get("/tracker/timeline")
+async def tracker_timeline(session_id: str, limit: int = 200) -> Dict[str, Any]:
+    events = get_events(session_id, limit=limit)
+    esc = assess_escalation(events)
+    return {
+        "events": events,
+        "escalation": {"should_consult": esc.should_consult, "reason": esc.reason, "level": esc.level},
+    }
+
+
+@app.post("/tracker/delete")
+async def tracker_delete(payload: Dict[str, Any]) -> Dict[str, str]:
+    sid = str(payload.get("session_id", "")).strip()
+    delete_session(sid)
+    return {"status": "ok"}
+
+
 @app.get("/", include_in_schema=False)
 def root():
     if _landing_index.exists():
@@ -174,6 +213,24 @@ async def predict_endpoint(request: Request, file: UploadFile = File(...)) -> Di
             "rapid changes, bleeding, or you are worried, seek a licensed clinician promptly."
         ),
     }
+
+    # If the client supplies a tracker session id, store analysis event (no image bytes stored).
+    sid = str(request.headers.get("X-Session-Id", "")).strip()
+    if sid:
+        try:
+            add_event(
+                sid,
+                "analysis",
+                {
+                    "top_label": top_label,
+                    "top_prob": float(top_prob),
+                    "top3": [{"label": lbl, "prob": float(prob)} for lbl, prob in top3],
+                    "model_backend": result.backend,
+                    "product_ids": [p.get("id") for p in products if isinstance(p, dict)],
+                },
+            )
+        except Exception:
+            pass
     return response
 
 
