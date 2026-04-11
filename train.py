@@ -51,8 +51,11 @@ def main() -> int:
     parser.add_argument("--batch", type=int, default=32, help="Batch size.")
     parser.add_argument("--epochs", type=int, default=8, help="Training epochs.")
     parser.add_argument("--finetune-epochs", type=int, default=2, help="Extra fine-tuning epochs (when using pretrained weights).")
+    parser.add_argument("--val-split", type=float, default=0.2, help="Validation split fraction (stratified).")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed.")
     parser.add_argument("--out-model", type=str, default="models/skin_model.keras", help="Output model path.")
     parser.add_argument("--out-labels", type=str, default="models/labels.json", help="Output labels path.")
+    parser.add_argument("--out-metrics", type=str, default="models/train_metrics.json", help="Output training metrics JSON.")
     args = parser.parse_args()
 
     # Ensure Keras cache is writable (some environments block writing to user profile dirs).
@@ -112,23 +115,39 @@ def main() -> int:
                 all_paths.append(p.as_posix())
                 all_labels.append(label_idx)
 
-    # Shuffle deterministically.
-    rng = random.Random(42)
-    idxs = list(range(len(all_paths)))
-    rng.shuffle(idxs)
-    all_paths = [all_paths[i] for i in idxs]
-    all_labels = [all_labels[i] for i in idxs]
+    # Stratified shuffle/split (helps small datasets).
+    rng = random.Random(int(args.seed))
+    by_class: List[List[int]] = [[] for _ in range(len(class_names))]
+    for i, y in enumerate(all_labels):
+        if 0 <= int(y) < len(by_class):
+            by_class[int(y)].append(i)
 
-    # Simple split (80/20).
-    split = max(1, int(len(all_paths) * 0.8))
-    train_paths, val_paths = all_paths[:split], all_paths[split:]
-    train_labels, val_labels = all_labels[:split], all_labels[split:]
+    train_idxs: List[int] = []
+    val_idxs: List[int] = []
+    val_frac = float(args.val_split)
+    val_frac = max(0.05, min(0.4, val_frac))
+
+    for cls_idxs in by_class:
+        rng.shuffle(cls_idxs)
+        n = len(cls_idxs)
+        n_val = max(1, int(round(n * val_frac))) if n >= 5 else max(1, int(n * val_frac))
+        val_idxs.extend(cls_idxs[:n_val])
+        train_idxs.extend(cls_idxs[n_val:])
+
+    rng.shuffle(train_idxs)
+    rng.shuffle(val_idxs)
+
+    train_paths = [all_paths[i] for i in train_idxs]
+    train_labels = [all_labels[i] for i in train_idxs]
+    val_paths = [all_paths[i] for i in val_idxs]
+    val_labels = [all_labels[i] for i in val_idxs]
 
     def load_and_preprocess(path: tf.Tensor, label: tf.Tensor):
         data = tf.io.read_file(path)
         img = tf.io.decode_image(data, channels=3, expand_animations=False)
         img = tf.cast(img, tf.float32)
-        img = tf.image.resize(img, img_size, method="bilinear")
+        # Preserve aspect ratio to reduce distortion.
+        img = tf.image.resize_with_pad(img, img_size[0], img_size[1], method="bilinear", antialias=True)
         return img, label
 
     autotune = tf.data.AUTOTUNE
@@ -158,6 +177,7 @@ def main() -> int:
             tf.keras.layers.RandomFlip("horizontal"),
             tf.keras.layers.RandomRotation(0.05),
             tf.keras.layers.RandomZoom(0.1),
+            tf.keras.layers.RandomContrast(0.12),
         ],
         name="augmentation",
     )
@@ -197,15 +217,33 @@ def main() -> int:
 
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3 if freeze_base else 1e-4),
-        loss=tf.keras.losses.SparseCategoricalCrossentropy(),
-        metrics=["accuracy"],
+        loss=tf.keras.losses.SparseCategoricalCrossentropy(label_smoothing=0.05),
+        metrics=[
+            tf.keras.metrics.SparseCategoricalAccuracy(name="acc"),
+            tf.keras.metrics.SparseTopKCategoricalAccuracy(k=3, name="top3"),
+        ],
     )
 
     callbacks = [
-        tf.keras.callbacks.EarlyStopping(monitor="val_accuracy", patience=3, restore_best_weights=True),
+        tf.keras.callbacks.EarlyStopping(monitor="val_acc", patience=4, restore_best_weights=True),
+        tf.keras.callbacks.ReduceLROnPlateau(monitor="val_acc", patience=2, factor=0.5, min_lr=1e-6),
     ]
 
-    model.fit(train_ds, validation_data=val_ds, epochs=int(args.epochs), callbacks=callbacks)
+    # Class weights (helps imbalanced datasets).
+    counts = [0 for _ in class_names]
+    for y in train_labels:
+        if 0 <= int(y) < len(counts):
+            counts[int(y)] += 1
+    total = float(sum(counts)) if sum(counts) else 1.0
+    class_weight = {i: (total / max(1.0, float(c))) for i, c in enumerate(counts)}
+
+    hist = model.fit(
+        train_ds,
+        validation_data=val_ds,
+        epochs=int(args.epochs),
+        callbacks=callbacks,
+        class_weight=class_weight,
+    )
 
     # Optional fine-tune: unfreeze top layers of the base when we had pretrained weights.
     finetune_epochs = max(0, int(args.finetune_epochs))
@@ -218,10 +256,17 @@ def main() -> int:
 
         model.compile(
             optimizer=tf.keras.optimizers.Adam(learning_rate=1e-5),
-            loss=tf.keras.losses.SparseCategoricalCrossentropy(),
-            metrics=["accuracy"],
+            loss=tf.keras.losses.SparseCategoricalCrossentropy(label_smoothing=0.05),
+            metrics=[
+                tf.keras.metrics.SparseCategoricalAccuracy(name="acc"),
+                tf.keras.metrics.SparseTopKCategoricalAccuracy(k=3, name="top3"),
+            ],
         )
-        model.fit(train_ds, validation_data=val_ds, epochs=finetune_epochs)
+        ft_hist = model.fit(train_ds, validation_data=val_ds, epochs=finetune_epochs, class_weight=class_weight)
+        # Merge histories for output.
+        for k, v in (ft_hist.history or {}).items():
+            hist.history.setdefault(k, [])
+            hist.history[k].extend(list(v))
 
     out_model = Path(args.out_model)
     out_model.parent.mkdir(parents=True, exist_ok=True)
@@ -229,6 +274,45 @@ def main() -> int:
 
     out_labels = Path(args.out_labels)
     save_labels(class_names, out_labels)
+
+    # Save a small metrics JSON (training curves + final eval + confusion matrix).
+    try:
+        import numpy as np  # type: ignore
+
+        y_true = []
+        y_pred = []
+        for xb, yb in val_ds:
+            probs = model.predict(xb, verbose=0)
+            probs = np.asarray(probs)
+            y_true.extend([int(x) for x in yb.numpy().tolist()])
+            y_pred.extend([int(x) for x in probs.argmax(axis=1).tolist()])
+
+        cm = tf.math.confusion_matrix(y_true, y_pred, num_classes=len(class_names)).numpy().tolist()
+        eval_out = model.evaluate(val_ds, verbose=0)
+        metric_names = list(model.metrics_names or [])
+        eval_map = {metric_names[i]: float(eval_out[i]) for i in range(min(len(metric_names), len(eval_out)))}
+
+        out_metrics = Path(args.out_metrics)
+        out_metrics.parent.mkdir(parents=True, exist_ok=True)
+        out_metrics.write_text(
+            json.dumps(
+                {
+                    "classes": class_names,
+                    "train_samples": len(train_paths),
+                    "val_samples": len(val_paths),
+                    "class_weight": {str(k): float(v) for k, v in class_weight.items()},
+                    "history": hist.history or {},
+                    "val_eval": eval_map,
+                    "confusion_matrix": cm,
+                    "img_size": int(args.img_size),
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        print(f"  Metrics: {out_metrics.resolve()}")
+    except Exception:
+        pass
 
     print("")
     print("Saved:")

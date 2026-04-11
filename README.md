@@ -118,6 +118,13 @@ Then:
 Optional helper scripts (Windows PowerShell):
 
 - `tools/check_model.ps1` — shows whether a trained model is present (otherwise the app uses heuristic fallback)
+- `tools/train_model.ps1` — installs TensorFlow and trains `models/skin_model.keras`
+
+Model quality tips:
+
+- You cannot reach **100% accuracy** reliably from photos alone (lighting, look-alikes, and dataset bias).
+- Aim for **high accuracy + safe uncertainty**: set `MIN_CONFIDENCE` (example `0.55`) so low-confidence scans return `top_label=uncertain` instead of a confident-looking guess.
+- Use balanced, diverse images per class (skin tones, lighting, angles) and keep labels consistent.
 - `tools/train_model.ps1` — creates a venv, installs deps + TensorFlow, and trains to `models/skin_model.h5`
 - `tools/prefetch_imagenet_weights.ps1` — downloads MobileNetV2 ImageNet weights into `.keras_cache/` (improves accuracy and avoids network at train time)
 
@@ -194,6 +201,10 @@ The landing UI also shows `affiliate_disclosure` from `products.json` near the B
 ### Freemium daily scan limit
 
 - `FREEMIUM_DAILY_MAX` (default `3`) — free scans/day per anonymous session id.
+
+### Confidence gate (recommended)
+
+- `MIN_CONFIDENCE` (example `0.55`) — if the model is unsure, the API returns `top_label=uncertain` and hides products.
 
 ### Doctor referral button (escalation)
 

@@ -2,7 +2,7 @@ param(
   [string]$Dataset = "data/train",
   [int]$Epochs = 8,
   [int]$FineTuneEpochs = 2,
-  [string]$ModelOut = "models/skin_model.h5",
+  [string]$ModelOut = "models/skin_model.keras",
   [string]$LabelsOut = "models/labels.json",
   [string]$VenvDir = ".venv"
 )

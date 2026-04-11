@@ -47,6 +47,7 @@ _predict_rate = RateLimit(
     window_seconds=int(os.getenv("PREDICT_RATE_WINDOW_SECONDS", "600")),
 )
 _freemium_daily_max = int(os.getenv("FREEMIUM_DAILY_MAX", "3"))
+_min_confidence = float(os.getenv("MIN_CONFIDENCE", "0.0"))
 _max_upload_bytes = int(os.getenv("MAX_UPLOAD_BYTES", str(10 * 1024 * 1024)))  # 10MB
 _max_image_pixels = int(os.getenv("MAX_IMAGE_PIXELS", str(12_000_000)))  # ~12 MP
 _landing_dir = Path(__file__).resolve().parent.parent / "landing"
@@ -309,9 +310,13 @@ async def predict_endpoint(request: Request, file: UploadFile = File(...)) -> Di
     top3 = result.top3()
     top_label, top_prob = top3[0]
 
+    # Confidence gate: avoid overconfident-looking guesses on uncertain inputs.
+    if _min_confidence > 0 and float(top_prob) < float(_min_confidence):
+        top_label = "uncertain"
+
     products_payload = load_products()
     top3_payload = [{"label": lbl, "prob": float(prob)} for lbl, prob in top3]
-    products = [public_product(p) for p in filter_products_for_top3(products_payload, top3_payload, limit=6)]
+    products = [public_product(p) for p in filter_products_for_top3(products_payload, top3_payload, limit=6)] if top_label != "uncertain" else []
 
     affiliate_disclosure = str(products_payload.get("affiliate_disclosure", "")).strip()
     amazon_required = str(os.getenv("DERMIQ_AMAZON_DISCLOSURE", "")).strip()
@@ -322,7 +327,14 @@ async def predict_endpoint(request: Request, file: UploadFile = File(...)) -> Di
         "top_label": top_label,
         "top_prob": float(top_prob),
         "top3": [{"label": lbl, "prob": float(prob)} for lbl, prob in top3],
-        "advice": advice_for_label(top_label),
+        "advice": (
+            [
+                "Result uncertain. Retake a clear, close-up photo in natural light.",
+                "If symptoms are severe, spreading, painful, bleeding, rapidly changing, or you’re worried, consult a licensed clinician promptly.",
+            ]
+            if top_label == "uncertain"
+            else advice_for_label(top_label)
+        ),
         "products": products,
         "disclaimer": str(products_payload.get("disclaimer", "")).strip(),
         "affiliate_disclosure": affiliate_line,

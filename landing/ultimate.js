@@ -581,3 +581,6 @@
   );
   document.querySelectorAll(".reveal").forEach((el) => obs.observe(el));
 })();
+    if (String(d?.top_label || "") === "uncertain") {
+      if (prodWrap) prodWrap.style.display = "none";
+    }
