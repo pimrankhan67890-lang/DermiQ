@@ -101,8 +101,23 @@ nav{
 .dash-pill{padding:9px 22px;border-radius:100px;background:var(--teal);color:#030608;font-size:.82rem;font-weight:700;text-decoration:none;font-family:var(--font-body);transition:opacity .2s}
 .dash-pill:hover{opacity:.88}
 #uname-nav{font-size:.82rem;color:var(--w3)}
-.auth-pill{display:none;padding:8px 14px;border-radius:100px;border:1px solid var(--border2);color:var(--w3);font-size:.8rem}
 .auth-link{display:none}
+.auth-modal{position:fixed;inset:0;z-index:250;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(3,6,8,.72);backdrop-filter:blur(18px)}
+.auth-modal.open{display:flex}
+.auth-card{width:min(100%,460px);padding:28px;border-radius:28px;background:rgba(7,15,22,.96);border:1px solid var(--border2);box-shadow:0 32px 100px rgba(0,0,0,.45)}
+.auth-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.auth-eyebrow{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);margin-bottom:10px}
+.auth-title{font-family:var(--font-display);font-size:1.7rem;line-height:1.05;letter-spacing:-.03em}
+.auth-copy{margin-top:12px;color:var(--w3);font-size:.95rem;line-height:1.7}
+.auth-list{margin-top:18px;display:grid;gap:10px}
+.auth-li{display:flex;gap:10px;align-items:flex-start;color:rgba(232,240,247,.8);font-size:.86rem;line-height:1.55}
+.auth-li-dot{width:7px;height:7px;border-radius:50%;background:var(--teal);margin-top:8px;flex-shrink:0}
+.auth-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px}
+.auth-google{display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:14px 18px;border-radius:999px;background:var(--teal);border:0;color:#031012;font-family:var(--font-body);font-weight:800;font-size:.92rem;cursor:pointer;flex:1;min-width:220px}
+.auth-alt{display:inline-flex;align-items:center;justify-content:center;padding:14px 18px;border-radius:999px;background:transparent;border:1px solid var(--border2);color:var(--w);font-family:var(--font-body);font-size:.88rem;cursor:pointer}
+.auth-close{width:38px;height:38px;border-radius:50%;border:1px solid var(--border2);background:transparent;color:var(--w2);cursor:pointer;font-size:1rem}
+.auth-close:hover,.auth-alt:hover{background:rgba(255,255,255,.05)}
+.auth-foot{margin-top:14px;color:var(--w3);font-size:.78rem;line-height:1.6}
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    HERO
@@ -376,35 +391,11 @@ nav{
 .save-progress-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
 .save-progress input{flex:1;min-width:180px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--border2);color:var(--w);font-family:var(--font-body)}
 .save-progress-msg{margin-top:10px;font-size:.78rem;color:rgba(0,240,204,.85);display:none}
-.journey-prompt,.journey-wrap{
+.journey-prompt{
   display:none;margin-top:18px;padding:22px;border-radius:var(--rl);
   background:var(--glass);border:1px solid var(--border);backdrop-filter:blur(20px);
 }
-.journey-prompt .products-title,.journey-wrap .products-title{margin-bottom:6px}
-.journey-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:14px}
-.journey-stat{padding:14px;border-radius:16px;background:rgba(255,255,255,.02);border:1px solid var(--border)}
-.journey-stat-k{font-size:.72rem;color:var(--w3);margin-bottom:4px}
-.journey-stat-v{font-family:var(--font-display);font-size:1.25rem;font-weight:700}
-.journey-list{margin-top:14px;display:grid;gap:10px}
-.journey-item,.product-track-row,.followup-row{
-  padding:14px;border-radius:16px;background:rgba(255,255,255,.02);border:1px solid var(--border);
-}
-.journey-item-top,.product-track-top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.journey-item-sub,.journey-copy{font-size:.8rem;color:var(--w3);line-height:1.6}
-.status-chip{padding:4px 10px;border-radius:999px;border:1px solid var(--teal-b);background:var(--teal-dim);color:var(--teal);font-size:.68rem;font-weight:700;text-transform:uppercase}
-.status-chip.caution{border-color:var(--amber-b);background:var(--amber-dim);color:var(--amber)}
-.status-chip.urgent{border-color:var(--coral-b);background:var(--coral-dim);color:var(--coral)}
-.product-statuses{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-.status-btn{padding:7px 11px;border-radius:999px;border:1px solid var(--border2);background:transparent;color:var(--w3);font-size:.74rem;cursor:pointer}
-.status-btn:hover,.status-btn.on{border-color:var(--teal-b);background:var(--teal-dim);color:var(--teal)}
-.journey-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;margin-top:14px}
-@media(max-width:860px){.journey-grid{grid-template-columns:1fr}}
-.followup-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:12px}
-.followup-fields input,.followup-fields textarea{
-  width:100%;padding:12px 14px;border-radius:14px;border:1px solid var(--border2);background:rgba(255,255,255,.03);color:var(--w);font:inherit;
-}
-.followup-flags{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;color:var(--w2);font-size:.82rem}
-.followup-msg{display:none;margin-top:10px;color:var(--teal);font-size:.78rem}
+.journey-prompt .products-title{margin-bottom:6px}
 
 .hub-note{margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.025);border:1px solid var(--border);font-size:.76rem;line-height:1.6;color:rgba(255,255,255,.7)}
 
@@ -516,6 +507,29 @@ footer{position:relative;z-index:1;padding:44px clamp(20px,5%,80px) 28px;border-
   <div class="wu-hint">Private by default · Not medical advice · Safety-first</div>
 </div>
 
+<div id="auth-modal" class="auth-modal" aria-hidden="true">
+  <div class="auth-card">
+    <div class="auth-top">
+      <div>
+        <div class="auth-eyebrow" id="auth-mode-label">Sign in</div>
+        <div class="auth-title" id="auth-title">Welcome back to DermIQ</div>
+      </div>
+      <button id="auth-close" class="auth-close" type="button" aria-label="Close">×</button>
+    </div>
+    <div class="auth-copy" id="auth-copy">Save your scan history, product tracking, and weekly follow-ups across devices.</div>
+    <div class="auth-list">
+      <div class="auth-li"><span class="auth-li-dot"></span><span>Keep routines, scan results, and tracked products together in one place.</span></div>
+      <div class="auth-li"><span class="auth-li-dot"></span><span>See progress over time and know when DermIQ thinks it is safer to escalate.</span></div>
+      <div class="auth-li"><span class="auth-li-dot"></span><span>Use one Google account across your phone and laptop without losing your journey.</span></div>
+    </div>
+    <div class="auth-actions">
+      <button id="auth-google" class="auth-google" type="button">Continue with Google</button>
+      <button id="auth-dismiss" class="auth-alt" type="button">Maybe later</button>
+    </div>
+    <div class="auth-foot">DermIQ is an AI skin journey companion for guidance, progress tracking, and safer next steps — not a diagnosis.</div>
+  </div>
+</div>
+
 <!-- NAV -->
 <nav>
   <a href="/" class="logo">DermIQ</a>
@@ -526,11 +540,11 @@ footer{position:relative;z-index:1;padding:44px clamp(20px,5%,80px) 28px;border-
     <li><a href="#safety">Safety</a></li>
   </ul>
   <div class="nav-r">
-    <span id="auth-pill" class="auth-pill">Anonymous mode</span>
-    <a id="journey-link" class="btn-ghost auth-link" href="#journey">My Journey</a>
-    <button id="btn-google-auth" class="btn-ghost" type="button">Sign in with Google</button>
+    <button id="btn-signin" class="btn-ghost" type="button">Sign in</button>
+    <button id="btn-signup" class="btn-pill-teal" type="button">Sign up free</button>
+    <span id="user-name" class="auth-link" style="color:var(--w2);font-size:.82rem"></span>
+    <a id="journey-link" class="btn-ghost auth-link" href="/journey">My Journey</a>
     <button id="btn-logout" class="btn-ghost auth-link" type="button">Logout</button>
-    <a class="btn-pill-teal" href="#scan">Try for free</a>
   </div>
 </nav>
 
@@ -542,7 +556,7 @@ footer{position:relative;z-index:1;padding:44px clamp(20px,5%,80px) 28px;border-
       Your skin.<br>
       <span class="h1-line2"><span class="h1-teal">Understood.</span> <span class="h1-coral">Safer.</span></span>
     </h1>
-    <p class="hero-sub">Upload one photo. Get non-diagnostic skin insights, confidence scores, and matched product links — with safety reminders.</p>
+    <p class="hero-sub">Upload one photo. Get AI-assisted skin guidance, a simpler routine, matched product options, and clearer next steps for tracking whether it helps.</p>
     <div class="hero-actions">
       <a href="#scan" class="btn-cta">📸 &nbsp;Analyse my skin now</a>
       <a href="#how" class="btn-sec">How it works →</a>
@@ -692,7 +706,7 @@ footer{position:relative;z-index:1;padding:44px clamp(20px,5%,80px) 28px;border-
         <div class="safety-note" style="margin-top:14px" id="routine-safety"></div>
         <div class="save-progress" id="save-progress-card">
           <div class="products-title" style="font-size:.95rem">Save your progress</div>
-          <div class="products-note">Optional for now: save your name + email so DermIQ can remember your routine and follow-up intent when full account sync launches.</div>
+          <div class="products-note">Want this saved across devices? Sign in with Google and DermIQ will carry your routine, products, and follow-up journey with you.</div>
           <div class="save-progress-row">
             <input id="save-name" type="text" placeholder="Your name" />
             <input id="save-email" type="email" placeholder="Email address" />
@@ -705,14 +719,14 @@ footer{position:relative;z-index:1;padding:44px clamp(20px,5%,80px) 28px;border-
 
     <div id="journey-prompt" class="journey-prompt">
       <div class="products-title">Save this to your journey</div>
-      <div class="products-note">After your first useful result, sign in with Google to keep scan history, tracked products, follow-ups, and escalation support across devices.</div>
+      <div class="products-note">After your first useful result, sign in to keep scan history, tracked products, follow-ups, and escalation support across devices.</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
-        <button id="btn-google-auth-inline" class="btn-ghost" type="button">Continue with Google</button>
-        <a class="btn-ghost" href="#journey">See what gets saved</a>
+        <button id="btn-google-auth-inline" class="btn-ghost" type="button">Save with Google</button>
+        <a class="btn-ghost" href="/journey">See My Journey</a>
       </div>
     </div>
 
-    <div id="journey" class="journey-wrap">
+    <div id="journey" class="journey-wrap" style="display:none">
       <div class="products-hdr">
         <div>
           <div class="products-title">My Journey</div>

@@ -72,6 +72,7 @@ _max_upload_bytes = int(os.getenv("MAX_UPLOAD_BYTES", str(10 * 1024 * 1024)))  #
 _max_image_pixels = int(os.getenv("MAX_IMAGE_PIXELS", str(12_000_000)))  # ~12 MP
 _landing_dir = Path(__file__).resolve().parent.parent / "landing"
 _landing_index = _landing_dir / "index.html"
+_landing_journey = _landing_dir / "journey.html"
 _enable_telemetry = str(os.getenv("ENABLE_TELEMETRY", "0")).strip() in {"1", "true", "yes", "on"}
 _consult_url = str(os.getenv("CONSULT_URL", "")).strip()
 _consult_label = str(os.getenv("CONSULT_LABEL", "Consult a clinician")).strip()
@@ -604,6 +605,13 @@ def root():
     if _landing_index.exists():
         return FileResponse(str(_landing_index))
     return {"status": "ok"}
+
+
+@app.get("/journey", include_in_schema=False)
+def journey_page():
+    if _landing_journey.exists():
+        return FileResponse(str(_landing_journey))
+    raise HTTPException(status_code=404, detail="Journey page not found.")
 
 
 @app.post("/predict")

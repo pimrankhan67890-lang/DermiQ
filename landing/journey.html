@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DermIQ — My Journey</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=Cabinet+Grotesk:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#030608;--bg1:#070f16;--bg2:#0b1721;--bg3:#0f2030;--teal:#00f0cc;--teal2:#00c4a7;--teal-dim:rgba(0,240,204,.08);--teal-b:rgba(0,240,204,.2);
+  --coral:#ff5757;--coral-dim:rgba(255,87,87,.08);--coral-b:rgba(255,87,87,.2);--amber:#ffb830;--amber-dim:rgba(255,184,48,.08);--amber-b:rgba(255,184,48,.2);
+  --w:#e8f0f7;--w2:#a0b4c4;--w3:#4a6070;--border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.12);--glass:rgba(11,23,33,.92);--r:18px;--rl:28px;
+  --font-display:'Clash Display',sans-serif;--font-body:'Cabinet Grotesk',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-body);background:var(--bg);color:var(--w);min-height:100vh}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.3;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E")}
+.amb{position:fixed;border-radius:50%;filter:blur(100px);pointer-events:none}.a1{width:520px;height:520px;top:-140px;left:-140px;background:radial-gradient(circle,rgba(0,240,204,.05),transparent 70%)}.a2{width:420px;height:420px;right:-120px;bottom:-120px;background:radial-gradient(circle,rgba(255,87,87,.05),transparent 70%)}
+nav{position:sticky;top:0;z-index:40;height:64px;padding:0 clamp(18px,4%,56px);display:flex;align-items:center;justify-content:space-between;background:rgba(3,6,8,.82);backdrop-filter:blur(28px);border-bottom:1px solid var(--border)}
+.logo{font-family:var(--font-display);font-size:1.45rem;font-weight:700;letter-spacing:-.02em;background:linear-gradient(90deg,var(--teal),var(--w) 55%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none}
+.nav-r{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.btn,.btn-ghost{display:inline-flex;align-items:center;justify-content:center;padding:10px 18px;border-radius:999px;font-family:var(--font-body);font-size:.84rem;text-decoration:none;cursor:pointer}
+.btn{background:var(--teal);color:#041015;font-weight:800;border:0}
+.btn-ghost{background:transparent;color:var(--w);border:1px solid var(--border2)}
+.btn-ghost:hover{background:rgba(255,255,255,.04)}
+#journey-user{color:var(--w2);font-size:.83rem}
+.page{position:relative;z-index:1;padding:34px clamp(18px,4%,56px) 80px}
+.hero{max-width:980px;margin:0 auto 22px}
+.eyebrow{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);margin-bottom:10px}
+.title{font-family:var(--font-display);font-size:clamp(2.1rem,4.5vw,3.4rem);line-height:1;letter-spacing:-.04em}
+.sub{margin-top:16px;max-width:780px;color:var(--w3);font-size:1rem;line-height:1.7}
+.grid{max-width:1180px;margin:22px auto 0;display:grid;grid-template-columns:1.15fr .85fr;gap:16px}
+@media(max-width:980px){.grid{grid-template-columns:1fr}}
+.card{padding:22px;border-radius:var(--rl);background:var(--glass);border:1px solid var(--border);backdrop-filter:blur(18px)}
+.card-title{font-family:var(--font-display);font-size:1.02rem;font-weight:700}
+.card-copy{margin-top:6px;color:var(--w3);font-size:.84rem;line-height:1.6}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:16px}
+.stat{padding:16px;border-radius:18px;background:rgba(255,255,255,.02);border:1px solid var(--border)}
+.stat-k{font-size:.72rem;color:var(--w3);margin-bottom:5px}
+.stat-v{font-family:var(--font-display);font-size:1.35rem;font-weight:700}
+.section{margin-top:16px;display:grid;gap:12px}
+.item,.row{padding:16px;border-radius:18px;background:rgba(255,255,255,.02);border:1px solid var(--border)}
+.item-top,.row-top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.item-sub,.copy{font-size:.82rem;color:var(--w3);line-height:1.6}
+.status-chip{padding:4px 10px;border-radius:999px;border:1px solid var(--teal-b);background:var(--teal-dim);color:var(--teal);font-size:.68rem;font-weight:700;text-transform:uppercase}
+.status-chip.caution{border-color:var(--amber-b);background:var(--amber-dim);color:var(--amber)}
+.status-chip.urgent{border-color:var(--coral-b);background:var(--coral-dim);color:var(--coral)}
+.routine-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:16px}
+.routine-box{padding:16px;border-radius:18px;background:rgba(255,255,255,.02);border:1px solid var(--border)}
+.routine-h{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--w3);margin-bottom:10px}
+.routine-li{font-size:.82rem;line-height:1.65;margin-bottom:7px;color:rgba(232,240,247,.88)}
+.product-statuses{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.status-btn{padding:7px 11px;border-radius:999px;border:1px solid var(--border2);background:transparent;color:var(--w3);font-size:.74rem;cursor:pointer}
+.status-btn:hover,.status-btn.on{border-color:var(--teal-b);background:var(--teal-dim);color:var(--teal)}
+.follow-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:12px}
+.follow-fields input{width:100%;padding:12px 14px;border-radius:14px;border:1px solid var(--border2);background:rgba(255,255,255,.03);color:var(--w);font:inherit}
+.follow-flags{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;color:var(--w2);font-size:.82rem}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.msg{display:none;margin-top:10px;color:var(--teal);font-size:.78rem}
+.empty{padding:18px;border-radius:18px;background:rgba(255,255,255,.02);border:1px solid var(--border);color:var(--w3);font-size:.84rem;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="amb a1"></div><div class="amb a2"></div>
+<nav>
+  <a class="logo" href="/">DermIQ</a>
+  <div class="nav-r">
+    <span id="journey-user"></span>
+    <a class="btn-ghost" href="/">New scan</a>
+    <button id="journey-logout" class="btn-ghost" type="button">Logout</button>
+  </div>
+</nav>
+<main class="page">
+  <section class="hero">
+    <div class="eyebrow">My Journey</div>
+    <h1 class="title">Track what may be happening, what you are using, and when it is time to escalate.</h1>
+    <p class="sub" id="journey-copy">DermIQ keeps your routines, product choices, and weekly check-ins together so you can see whether your skin is improving and when a clinician may be the safer next step.</p>
+  </section>
+  <section class="grid">
+    <div>
+      <div class="card">
+        <div class="card-title">Overview</div>
+        <div class="card-copy">Your current condition focus, progress signal, and saved journey activity.</div>
+        <div class="stats">
+          <div class="stat"><div class="stat-k">Total scans</div><div class="stat-v" id="journey-stat-scans">0</div></div>
+          <div class="stat"><div class="stat-k">Tracked products</div><div class="stat-v" id="journey-stat-products">0</div></div>
+          <div class="stat"><div class="stat-k">Active products</div><div class="stat-v" id="journey-stat-active">0</div></div>
+          <div class="stat"><div class="stat-k">Weekly check-ins</div><div class="stat-v" id="journey-stat-followups">0</div></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-title">Current routine</div>
+        <div class="card-copy" id="routine-headline-copy">Your latest saved plan appears here after you generate a routine from the smart product hub.</div>
+        <div class="routine-grid">
+          <div class="routine-box"><div class="routine-h">AM</div><div id="routine-am"></div></div>
+          <div class="routine-box"><div class="routine-h">PM</div><div id="routine-pm"></div></div>
+          <div class="routine-box"><div class="routine-h">Weekly</div><div id="routine-weekly"></div></div>
+          <div class="routine-box"><div class="routine-h">Avoid</div><div id="routine-avoid"></div></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-title">Tracked products</div>
+        <div class="card-copy">Mark what is active, helpful, irritating, or stopped so DermIQ can learn from the full journey.</div>
+        <div class="section" id="journey-products"><div class="empty">No tracked products yet. Save a routine from the landing page to start your journey.</div></div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <div class="card-title">Escalation</div>
+        <div class="card-copy">DermIQ stays conservative and will suggest a clinician when symptoms stay severe, worsen, or show red flags.</div>
+        <div class="section">
+          <div class="item">
+            <div class="item-top">
+              <div class="card-title" style="font-size:1rem">Current status</div>
+              <span id="journey-escalation-level" class="status-chip">None</span>
+            </div>
+            <div class="copy" id="journey-escalation-reason">No warning signs in your saved journey yet.</div>
+            <div class="actions" id="journey-escalation-cta-wrap" style="display:none">
+              <a id="journey-escalation-cta" class="btn-ghost" href="/">Consult a clinician</a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-title">Weekly follow-up</div>
+        <div class="card-copy">Add one quick check-in so DermIQ can look for improvement, irritation, or warning signs over time.</div>
+        <div class="follow-fields">
+          <input id="followup-severity" type="number" min="0" max="10" step="1" placeholder="Severity 0 to 10">
+          <input id="followup-notes" type="text" placeholder="What changed this week?">
+        </div>
+        <div class="follow-flags">
+          <label><input type="checkbox" id="flag-fever"> Fever</label>
+          <label><input type="checkbox" id="flag-spreading"> Spreading fast</label>
+          <label><input type="checkbox" id="flag-bleeding"> Bleeding</label>
+          <label><input type="checkbox" id="flag-eye"> Eye involvement</label>
+          <label><input type="checkbox" id="flag-pain"> Severe pain</label>
+        </div>
+        <div class="actions">
+          <button id="btn-followup-save" class="btn-ghost" type="button">Save follow-up</button>
+          <button id="btn-journey-delete" class="btn-ghost" type="button">Delete my data</button>
+        </div>
+        <div id="followup-msg" class="msg">Saved. DermIQ updated your journey.</div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-title">Recent scans</div>
+        <div class="card-copy">Your latest saved scan history appears here after sign-in.</div>
+        <div class="section" id="journey-scans"><div class="empty">No saved scans yet. Go back to the landing page and analyse a photo.</div></div>
+      </div>
+    </div>
+  </section>
+</main>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script defer src="./dashboard.js?v=20260412"></script>
+</body>
+</html>
