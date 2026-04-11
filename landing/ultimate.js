@@ -44,6 +44,7 @@
   let billingPlan = "free";
   let billingProToken = "";
   const CART_KEY = "dermiq_cart_v1";
+  const ANALYTICS_KEY = "dermiq_analytics_key";
   let cartIds = [];
   let cartPrefs = { preferred_store: "", note: "" };
   let exploreCategory = "sunscreen";
@@ -147,6 +148,26 @@
     try {
       window.localStorage.setItem(CART_KEY, JSON.stringify(cartIds.slice(0, 30)));
     } catch {}
+  }
+
+  function loadAnalyticsKey() {
+    try {
+      const key = window.localStorage.getItem(ANALYTICS_KEY) || "";
+      if (qs("money-admin-key")) qs("money-admin-key").value = String(key).trim();
+      return String(key).trim();
+    } catch {
+      return "";
+    }
+  }
+
+  function saveAnalyticsKey(key) {
+    const clean = String(key || "").trim();
+    try {
+      if (clean) window.localStorage.setItem(ANALYTICS_KEY, clean);
+      else window.localStorage.removeItem(ANALYTICS_KEY);
+    } catch {}
+    if (qs("money-admin-key")) qs("money-admin-key").value = clean;
+    return clean;
   }
 
   function loadCartPrefs() {
@@ -401,6 +422,86 @@
 
     await logTrackerEvent("routine_generated_ui", { product_ids: cartIds.slice(0, 30), scan_id: scanId || "" });
     rw?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function renderMoneyList(id, rows, builder) {
+    const el = qs(id);
+    if (!el) return;
+    const list = Array.isArray(rows) ? rows : [];
+    if (!list.length) {
+      el.innerHTML = `<div class="money-empty">No data yet.</div>`;
+      return;
+    }
+    el.innerHTML = list.map(builder).join("");
+  }
+
+  function renderMoneySummary(data) {
+    const summary = data?.summary || {};
+    const stats = qs("money-stats");
+    if (stats) {
+      const items = [
+        ["Sessions", summary.sessions ?? 0],
+        ["Analyses", summary.analyses ?? 0],
+        ["Product clicks", summary.product_clicks ?? 0],
+        ["Routine plans", summary.routine_plans ?? 0],
+        ["Checkout starts", summary.checkout_starts ?? 0],
+        ["CTR", `${Number(summary.click_through_rate || 0).toFixed(1)}%`],
+      ];
+      stats.innerHTML = items
+        .map(
+          ([label, value]) =>
+            `<div class="money-stat"><div class="money-stat-k">${String(label)}</div><div class="money-stat-v">${String(value)}</div></div>`,
+        )
+        .join("");
+    }
+
+    renderMoneyList("money-categories", data?.top_categories, (row) => {
+      const cat = labelToTitle(row?.category || "unknown");
+      return `<div class="money-row"><span>${cat}</span><small>${Number(row?.count || 0)} views</small></div>`;
+    });
+    renderMoneyList("money-stores", data?.top_stores, (row) => {
+      return `<div class="money-row"><span>${String(row?.store || "Unknown")}</span><small>${Number(row?.count || 0)} clicks</small></div>`;
+    });
+    renderMoneyList("money-products", data?.top_products, (row) => {
+      const stores = row?.stores && typeof row.stores === "object" ? Object.entries(row.stores).slice(0, 2).map(([name, count]) => `${name} ${count}`).join(" · ") : "";
+      return `<div class="money-row"><span>${labelToTitle(row?.product_id || "product")}</span><small>${Number(row?.clicks || 0)} clicks${stores ? ` · ${stores}` : ""}</small></div>`;
+    });
+    renderMoneyList("money-conditions", data?.top_conditions, (row) => {
+      return `<div class="money-row"><span>${labelToTitle(row?.label || "unknown")}</span><small>${Number(row?.count || 0)} scans</small></div>`;
+    });
+
+    const banner = qs("money-banner");
+    if (banner) {
+      const scope = String(data?.scope || "session");
+      banner.textContent =
+        scope === "global"
+          ? `Owner view unlocked · last ${Number(data?.days || 30)} days · commissions still finalize in each affiliate dashboard.`
+          : "Showing your current session by default. Add your owner analytics key to view full-site revenue signals.";
+    }
+  }
+
+  async function refreshMoneyDashboard() {
+    const sid = await ensureSession();
+    if (!sid) return;
+    const adminKey = String(qs("money-admin-key")?.value || loadAnalyticsKey()).trim();
+    const params = new URLSearchParams({ days: "30" });
+    const headers = {};
+    if (adminKey) {
+      headers["X-Analytics-Key"] = adminKey;
+      saveAnalyticsKey(adminKey);
+    } else {
+      params.set("session_id", sid);
+    }
+    const r = await fetch(`/analytics/summary?${params.toString()}`, { method: "GET", headers });
+    if (!r.ok) {
+      if (r.status === 403 && adminKey) {
+        saveAnalyticsKey("");
+        throw new Error("Owner analytics key is invalid.");
+      }
+      throw new Error("Could not load money dashboard.");
+    }
+    const j = await r.json().catch(() => null);
+    renderMoneySummary(j || {});
   }
 
   /* FILE HANDLING */
@@ -870,8 +971,10 @@
 
   // Explorer + cart init (minimal: hidden until after first scan)
   loadCart();
+  loadAnalyticsKey();
   applyCartPrefs(cartPrefs);
   restoreCartFromServer().catch(() => {});
+  refreshMoneyDashboard().catch(() => {});
   const catBox = qs("explore-cats");
   catBox?.querySelectorAll(".chip").forEach((b) =>
     b.addEventListener("click", () => {
@@ -903,6 +1006,12 @@
   });
   qs("pref-note")?.addEventListener("change", () => {
     logCartUpdate().catch(() => {});
+  });
+  qs("btn-money-refresh")?.addEventListener("click", () => {
+    refreshMoneyDashboard().catch((err) => alert(String(err?.message || "Could not load money dashboard.")));
+  });
+  qs("btn-money-unlock")?.addEventListener("click", () => {
+    refreshMoneyDashboard().catch((err) => alert(String(err?.message || "Could not unlock owner view.")));
   });
 
   /* Scroll reveals */

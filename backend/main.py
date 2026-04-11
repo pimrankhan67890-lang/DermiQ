@@ -34,6 +34,7 @@ from backend.tracker import (
     add_event,
     create_session,
     delete_session,
+    get_analytics_summary,
     get_daily_scans,
     get_events,
     incr_daily_scans,
@@ -58,6 +59,7 @@ _landing_index = _landing_dir / "index.html"
 _enable_telemetry = str(os.getenv("ENABLE_TELEMETRY", "0")).strip() in {"1", "true", "yes", "on"}
 _consult_url = str(os.getenv("CONSULT_URL", "")).strip()
 _consult_label = str(os.getenv("CONSULT_LABEL", "Consult a clinician")).strip()
+_analytics_key = str(os.getenv("DERMIQ_ANALYTICS_KEY", "")).strip()
 
 
 def _cors_allow_origins() -> List[str]:
@@ -239,6 +241,23 @@ async def tracker_delete(payload: Dict[str, Any]) -> Dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/analytics/summary")
+async def analytics_summary(
+    request: Request,
+    days: int = 30,
+    session_id: str = "",
+    admin_key: str = "",
+) -> Dict[str, Any]:
+    supplied_key = str(admin_key or request.headers.get("X-Analytics-Key", "")).strip()
+    if _analytics_key and supplied_key == _analytics_key:
+        return get_analytics_summary(days=days, session_id="")
+
+    sid = str(session_id or request.headers.get("X-Session-Id", "")).strip()
+    if not sid:
+        raise HTTPException(status_code=403, detail="Analytics key required.")
+    return get_analytics_summary(days=days, session_id=sid)
+
+
 @app.post("/routine/plan")
 async def routine_plan(request: Request, payload: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -313,6 +332,11 @@ async def billing_link(request: Request, payload: Dict[str, Any]) -> Dict[str, A
     ok = link_session_to_pro_token(sid, tok)
     if not ok:
         raise HTTPException(status_code=400, detail="Invalid Pro code.")
+    if sid:
+        try:
+            add_event(sid, "pro_linked", {"source": "code"})
+        except Exception:
+            pass
     st = get_billing_status(sid)
     return {"status": "ok", "plan": st.plan}
 
@@ -336,12 +360,22 @@ async def billing_unlock(request: Request, payload: Dict[str, Any]) -> Dict[str,
     tok = create_manual_pro_for_session(sid)
     if not tok:
         raise HTTPException(status_code=400, detail="Missing session.")
+    if sid:
+        try:
+            add_event(sid, "pro_linked", {"source": "manual_unlock"})
+        except Exception:
+            pass
     return {"status": "ok", "plan": "pro", "pro_token": tok}
 
 
 @app.post("/billing/checkout")
 async def billing_checkout(request: Request) -> Dict[str, Any]:
     sid = str(request.headers.get("X-Session-Id", "")).strip()
+    if sid:
+        try:
+            add_event(sid, "billing_checkout_started", {"provider": "stripe"})
+        except Exception:
+            pass
     url, err = stripe_create_checkout_url(sid)
     if not url:
         raise HTTPException(status_code=501, detail=err or "Billing not available.")

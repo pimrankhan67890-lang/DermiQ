@@ -181,6 +181,132 @@ def delete_session(session_id: str) -> None:
         c.close()
 
 
+def _parse_payload(blob: Any) -> Dict[str, Any]:
+    try:
+        data = json.loads(str(blob))
+    except Exception:
+        data = {}
+    return data if isinstance(data, dict) else {}
+
+
+def get_analytics_summary(days: int = 30, session_id: str = "") -> Dict[str, Any]:
+    init_db()
+    session_id = str(session_id or "").strip()
+    days_i = max(1, min(int(days), 365))
+    cutoff = _now() - days_i * 86400
+
+    c = _conn()
+    try:
+        params: Tuple[Any, ...]
+        q = (
+            "SELECT session_id, ts, kind, payload FROM events "
+            "WHERE ts >= ? "
+        )
+        params = (cutoff,)
+        if session_id:
+            q += "AND session_id = ? "
+            params = (cutoff, session_id)
+        q += "ORDER BY ts DESC"
+        rows = c.execute(q, params).fetchall()
+
+        sessions = set()
+        counts: Dict[str, int] = {}
+        category_counts: Dict[str, int] = {}
+        store_clicks: Dict[str, int] = {}
+        product_clicks: Dict[str, Dict[str, Any]] = {}
+        shortlist_counts: Dict[str, int] = {}
+        routine_products: Dict[str, int] = {}
+        analysis_labels: Dict[str, int] = {}
+
+        for row in rows:
+            sid = str(row["session_id"] or "").strip()
+            if sid:
+                sessions.add(sid)
+            kind = str(row["kind"] or "").strip()
+            counts[kind] = counts.get(kind, 0) + 1
+            payload = _parse_payload(row["payload"])
+
+            if kind == "product_view":
+                cat = str(payload.get("category", "")).strip().lower()
+                if cat:
+                    category_counts[cat] = category_counts.get(cat, 0) + 1
+
+            elif kind == "product_click":
+                store = str(payload.get("store", "")).strip() or "Unknown"
+                product_id = str(payload.get("product_id", "")).strip()
+                store_clicks[store] = store_clicks.get(store, 0) + 1
+                if product_id:
+                    entry = product_clicks.setdefault(product_id, {"product_id": product_id, "clicks": 0, "stores": {}})
+                    entry["clicks"] += 1
+                    entry["stores"][store] = int(entry["stores"].get(store, 0)) + 1
+
+            elif kind == "cart_update":
+                for pid in payload.get("product_ids", []) if isinstance(payload.get("product_ids"), list) else []:
+                    key = str(pid or "").strip()
+                    if key:
+                        shortlist_counts[key] = shortlist_counts.get(key, 0) + 1
+
+            elif kind == "routine_generated":
+                for pid in payload.get("selected_products", []) if isinstance(payload.get("selected_products"), list) else []:
+                    key = str(pid or "").strip()
+                    if key:
+                        routine_products[key] = routine_products.get(key, 0) + 1
+
+            elif kind == "analysis":
+                label = str(payload.get("top_label", "")).strip()
+                if label:
+                    analysis_labels[label] = analysis_labels.get(label, 0) + 1
+
+        def top_map(src: Dict[str, int], label_key: str) -> List[Dict[str, Any]]:
+            return [
+                {label_key: key, "count": value}
+                for key, value in sorted(src.items(), key=lambda item: (-item[1], item[0]))[:8]
+            ]
+
+        product_rows = sorted(product_clicks.values(), key=lambda item: (-int(item["clicks"]), item["product_id"]))[:8]
+        top_products = []
+        for item in product_rows:
+            top_products.append(
+                {
+                    "product_id": item["product_id"],
+                    "clicks": int(item["clicks"]),
+                    "stores": dict(sorted(item["stores"].items(), key=lambda pair: (-pair[1], pair[0]))),
+                    "shortlists": int(shortlist_counts.get(item["product_id"], 0)),
+                    "routine_plans": int(routine_products.get(item["product_id"], 0)),
+                }
+            )
+
+        product_clicks_total = int(counts.get("product_click", 0))
+        analyses_total = int(counts.get("analysis", 0))
+        routines_total = int(counts.get("routine_generated", 0) + counts.get("routine_generated_ui", 0))
+        ctr = round((product_clicks_total / analyses_total) * 100, 1) if analyses_total else 0.0
+        routine_rate = round((routines_total / analyses_total) * 100, 1) if analyses_total else 0.0
+
+        return {
+            "days": days_i,
+            "scope": "session" if session_id else "global",
+            "session_id": session_id,
+            "summary": {
+                "sessions": len(sessions) if not session_id else (1 if rows else 0),
+                "analyses": analyses_total,
+                "product_views": int(counts.get("product_view", 0)),
+                "product_clicks": product_clicks_total,
+                "cart_updates": int(counts.get("cart_update", 0)),
+                "routine_plans": routines_total,
+                "checkout_starts": int(counts.get("billing_checkout_started", 0)),
+                "pro_unlocks": int(counts.get("pro_linked", 0)),
+                "click_through_rate": ctr,
+                "routine_rate": routine_rate,
+            },
+            "top_categories": top_map(category_counts, "category"),
+            "top_stores": top_map(store_clicks, "store"),
+            "top_conditions": top_map(analysis_labels, "label"),
+            "top_products": top_products,
+        }
+    finally:
+        c.close()
+
+
 def _day_utc(ts: Optional[int] = None) -> int:
     t = int(ts) if ts is not None else _now()
     return int(t // 86400)
