@@ -99,7 +99,28 @@ def filter_products_for_top3(payload: Dict[str, Any], top3: List[Dict[str, Any]]
     if not probs:
         return []
 
-    scored: List[Tuple[float, str, Dict[str, Any]]] = []
+    label_order = [str(t.get("label", "")).strip() for t in top3 if isinstance(t, dict) and str(t.get("label", "")).strip()]
+    primary = label_order[0] if label_order else ""
+    tag_bonus_by_label: Dict[str, Dict[str, float]] = {
+        "acne": {"salicylic_acid": 0.14, "non_comedogenic": 0.12, "lightweight": 0.08},
+        "rosacea": {"mineral": 0.14, "sensitive": 0.12, "fragrance_free": 0.1},
+        "eczema": {"ceramides": 0.16, "dryness": 0.12, "sensitive": 0.1},
+        "dryness": {"ceramides": 0.14, "dryness": 0.12, "ointment": 0.08},
+        "hyperpigmentation": {"tinted": 0.12, "mineral": 0.1, "azelaic_acid": 0.08},
+        "psoriasis": {"ointment": 0.14, "dryness": 0.1, "scalp": 0.08},
+        "seborrheic_dermatitis": {"scalp": 0.14, "seb_derm": 0.12},
+    }
+    category_bonus_by_label: Dict[str, Dict[str, float]] = {
+        "acne": {"cleanser": 0.08, "treatment": 0.1, "sunscreen": 0.05},
+        "rosacea": {"sunscreen": 0.1, "moisturizer": 0.08, "treatment": 0.06},
+        "eczema": {"moisturizer": 0.12, "cleanser": 0.06},
+        "dryness": {"moisturizer": 0.12, "cleanser": 0.05},
+        "hyperpigmentation": {"sunscreen": 0.12, "treatment": 0.08},
+        "psoriasis": {"moisturizer": 0.1, "treatment": 0.08},
+        "seborrheic_dermatitis": {"treatment": 0.12, "cleanser": 0.05},
+    }
+
+    scored: List[Tuple[float, str, str, Dict[str, Any]]] = []
     for item in items:
         if not isinstance(item, dict):
             continue
@@ -113,18 +134,49 @@ def filter_products_for_top3(payload: Dict[str, Any], top3: List[Dict[str, Any]]
         if not conds:
             continue
 
+        tags = {str(t).strip() for t in item.get("tags", []) if str(t).strip()} if isinstance(item.get("tags"), list) else set()
+        category = str(item.get("category", "")).strip().lower()
+
         # Score: sum of probabilities of matched labels + a small bonus for multiple matches.
         matched = [probs[l] for l in probs.keys() if l in conds]
         if not matched:
             continue
         score = float(sum(matched) + max(0, len(matched) - 1) * 0.05)
-        scored.append((score, pid, item))
+        if primary:
+            for tag, bonus in tag_bonus_by_label.get(primary, {}).items():
+                if tag in tags:
+                    score += float(bonus)
+            score += float(category_bonus_by_label.get(primary, {}).get(category, 0.0))
+            if primary in conds:
+                score += 0.08
+        try:
+            rank = int(item.get("rank", 999) or 999)
+        except Exception:
+            rank = 999
+        score += max(0.0, (1000.0 - float(rank)) / 10000.0)
+        scored.append((score, pid, category, item))
 
     scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
 
     out: List[Dict[str, Any]] = []
     seen: set[str] = set()
-    for _score, pid, item in scored:
+    seen_categories: set[str] = set()
+
+    # First pass: diversify categories when possible.
+    for _score, pid, category, item in scored:
+        if pid in seen:
+            continue
+        if category and category in seen_categories:
+            continue
+        out.append(item)
+        seen.add(pid)
+        if category:
+            seen_categories.add(category)
+        if len(out) >= max(0, int(limit)):
+            return out
+
+    # Second pass: fill remaining slots by score.
+    for _score, pid, _category, item in scored:
         if pid in seen:
             continue
         out.append(item)

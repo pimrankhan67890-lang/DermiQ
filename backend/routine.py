@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Optional
 
 @dataclass(frozen=True)
 class RoutinePlan:
+    headline: str
+    today_focus: str
     am: List[str]
     pm: List[str]
     weekly: List[str]
@@ -51,6 +53,7 @@ def build_routine_plan(
     has_moist = "moisturizer" in cats
     has_spf = "sunscreen" in cats
     has_treat = "treatment" in cats
+    product_count = len([p for p in (selected_products or []) if isinstance(p, dict)])
 
     am: List[str] = []
     pm: List[str] = []
@@ -114,8 +117,33 @@ def build_routine_plan(
     if note:
         notes.append(f"User note: {note}")
 
+    headline_map = {
+        "acne": "Calm breakouts without over-drying your skin.",
+        "rosacea": "Protect the barrier and reduce flare triggers.",
+        "eczema": "Repair the barrier first and keep the routine gentle.",
+        "dryness": "Restore moisture consistently and reduce irritation.",
+        "hyperpigmentation": "Protect from UV and stay steady for more even tone.",
+        "psoriasis": "Support scaling-prone skin and watch for warning signs.",
+        "seborrheic_dermatitis": "Keep care gentle and consistent around flakes and oil-prone areas.",
+    }
+    focus_map = {
+        "acne": "Start treatment nights slowly, keep sunscreen daily, and avoid picking.",
+        "rosacea": "Prioritize gentle cleansing, mineral SPF, and trigger tracking.",
+        "eczema": "Moisturize soon after washing and stop anything that stings.",
+        "dryness": "Use fewer products, more moisture, and avoid over-cleansing.",
+        "hyperpigmentation": "Daily sunscreen matters more than adding too many actives at once.",
+        "psoriasis": "Consistency matters; watch for spread, pain, and scalp changes.",
+        "seborrheic_dermatitis": "Keep the scalp/face routine simple and observe flaking trends.",
+    }
+    headline = headline_map.get(label, "Build a simple, steady routine and track how your skin responds.")
+    today_focus = focus_map.get(label, "Stay consistent, introduce products slowly, and track change weekly.")
+    if product_count:
+        today_focus += f" You shortlisted {product_count} product{'s' if product_count != 1 else ''}, so introduce them one at a time."
+
     timeline = "Retake a clear photo in 7 days and compare trend. Consult a clinician if worsening, painful, spreading, or if you’re worried."
     return RoutinePlan(
+        headline=headline,
+        today_focus=today_focus,
         am=_uniq(am),
         pm=_uniq(pm),
         weekly=_uniq(weekly),

@@ -366,6 +366,14 @@ nav{
 .routine-box{padding:14px 16px;border-radius:16px;background:rgba(255,255,255,.02);border:1px solid var(--border)}
 .routine-h{font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.65);margin-bottom:10px}
 .routine-li{font-size:.8rem;color:rgba(255,255,255,.86);line-height:1.6;margin-bottom:6px}
+.routine-focus{margin-top:12px;padding:16px 18px;border-radius:16px;background:rgba(0,240,204,.05);border:1px solid rgba(0,240,204,.14)}
+.routine-focus-title{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:8px}
+.routine-focus-head{font-family:var(--font-display);font-size:1.08rem;font-weight:700;line-height:1.35}
+.routine-focus-copy{margin-top:8px;font-size:.82rem;line-height:1.65;color:rgba(255,255,255,.76)}
+.save-progress{display:none;margin-top:14px;padding:18px;border-radius:18px;background:rgba(255,255,255,.02);border:1px solid var(--border)}
+.save-progress-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.save-progress input{flex:1;min-width:180px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--border2);color:var(--w);font-family:var(--font-body)}
+.save-progress-msg{margin-top:10px;font-size:.78rem;color:rgba(0,240,204,.85);display:none}
 
 .hub-note{margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.025);border:1px solid var(--border);font-size:.76rem;line-height:1.6;color:rgba(255,255,255,.7)}
 
@@ -631,6 +639,11 @@ footer{position:relative;z-index:1;padding:44px clamp(20px,5%,80px) 28px;border-
             <div class="products-note" id="routine-note"></div>
           </div>
         </div>
+        <div class="routine-focus">
+          <div class="routine-focus-title">Today’s focus</div>
+          <div class="routine-focus-head" id="routine-headline"></div>
+          <div class="routine-focus-copy" id="routine-focus-copy"></div>
+        </div>
         <div class="routine-grid">
           <div class="routine-box"><div class="routine-h">AM</div><div id="routine-am"></div></div>
           <div class="routine-box"><div class="routine-h">PM</div><div id="routine-pm"></div></div>
@@ -642,6 +655,16 @@ footer{position:relative;z-index:1;padding:44px clamp(20px,5%,80px) 28px;border-
           <div class="routine-box"><div class="routine-h">Notes</div><div id="routine-notes"></div></div>
         </div>
         <div class="safety-note" style="margin-top:14px" id="routine-safety"></div>
+        <div class="save-progress" id="save-progress-card">
+          <div class="products-title" style="font-size:.95rem">Save your progress</div>
+          <div class="products-note">Optional for now: save your name + email so DermIQ can remember your routine and follow-up intent when full account sync launches.</div>
+          <div class="save-progress-row">
+            <input id="save-name" type="text" placeholder="Your name" />
+            <input id="save-email" type="email" placeholder="Email address" />
+            <button class="btn-ghost" id="btn-save-progress" type="button">Save progress</button>
+          </div>
+          <div class="save-progress-msg" id="save-progress-msg">Saved. We’ll use this to support follow-up flows and future account sync.</div>
+        </div>
       </div>
     </div>
 

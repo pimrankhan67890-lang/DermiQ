@@ -526,6 +526,10 @@
     if (rw) rw.style.display = "block";
     const note = qs("routine-note");
     if (note) note.textContent = "Built from your selected products" + (lastScan?.top_label ? ` · Based on: ${labelToTitle(lastScan.top_label)}` : "");
+    const headline = qs("routine-headline");
+    if (headline) headline.textContent = String(plan.headline || "Keep the routine simple and consistent.");
+    const focus = qs("routine-focus-copy");
+    if (focus) focus.textContent = String(plan.today_focus || "Introduce products one at a time and track how your skin responds.");
     const safety = qs("routine-safety");
     if (safety) safety.textContent = "⚠️ " + String(j?.safety || "");
 
@@ -542,6 +546,16 @@
     renderList("routine-avoid", plan.avoid);
     renderList("routine-notes", plan.notes);
     renderList("routine-timeline", plan.timeline ? [plan.timeline] : []);
+    const saveCard = qs("save-progress-card");
+    if (saveCard) saveCard.style.display = "block";
+    try {
+      const savedName = qs("save-name");
+      const savedEmail = qs("save-email");
+      if (savedName && !savedName.value) savedName.value = String(window.localStorage.getItem("dermiq_save_name") || "");
+      if (savedEmail && !savedEmail.value) savedEmail.value = String(window.localStorage.getItem("dermiq_save_email") || "");
+    } catch {}
+    const savedMsg = qs("save-progress-msg");
+    if (savedMsg) savedMsg.style.display = "none";
 
     await logTrackerEvent("routine_generated_ui", { product_ids: cartIds.slice(0, 30), scan_id: scanId || "" });
     rw?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -616,6 +630,25 @@
     renderMoneySummary(j || {});
   }
 
+  async function saveProgressIntent() {
+    const name = String(qs("save-name")?.value || "").trim();
+    const email = String(qs("save-email")?.value || "").trim();
+    if (!email) return alert("Add your email to save progress.");
+    try {
+      window.localStorage.setItem("dermiq_save_name", name);
+      window.localStorage.setItem("dermiq_save_email", email);
+    } catch {}
+    await logTrackerEvent("save_progress_interest", {
+      scan_id: scanId || "",
+      top_label: String(lastScan?.top_label || ""),
+      product_ids: cartIds.slice(0, 30),
+      name,
+      email,
+    });
+    const msg = qs("save-progress-msg");
+    if (msg) msg.style.display = "block";
+  }
+
   /* FILE HANDLING */
   function handleFile(e) {
     const f = e?.target?.files?.[0];
@@ -649,6 +682,8 @@
     if (cart) cart.style.display = "none";
     const routine = qs("routine-wrap");
     if (routine) routine.style.display = "none";
+    const saveCard = qs("save-progress-card");
+    if (saveCard) saveCard.style.display = "none";
     const fb = qs("feedback-wrap");
     if (fb) fb.style.display = "none";
   }
@@ -1082,6 +1117,15 @@
   qs("pref-note")?.addEventListener("change", () => {
     logCartUpdate().catch(() => {});
   });
+  qs("btn-save-progress")?.addEventListener("click", () => {
+    saveProgressIntent().catch(() => alert("Could not save your progress right now."));
+  });
+  try {
+    const savedName = String(window.localStorage.getItem("dermiq_save_name") || "");
+    const savedEmail = String(window.localStorage.getItem("dermiq_save_email") || "");
+    if (qs("save-name")) qs("save-name").value = savedName;
+    if (qs("save-email")) qs("save-email").value = savedEmail;
+  } catch {}
   /* Scroll reveals */
   const obs = new IntersectionObserver(
     (entries) => {
