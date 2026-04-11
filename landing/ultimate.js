@@ -42,13 +42,12 @@
   let lastScan = null;
   let sessionId = null;
   let billingPlan = "free";
-  let billingProToken = "";
   const CART_KEY = "dermiq_cart_v1";
-  const ANALYTICS_KEY = "dermiq_analytics_key";
   let cartIds = [];
   let cartPrefs = { preferred_store: "", note: "" };
   let exploreCategory = "sunscreen";
   const catalogCache = new Map();
+  let matchedProducts = [];
 
   function loadSessionId() {
     try {
@@ -90,7 +89,6 @@
       if (!r.ok) return;
       const j = await r.json().catch(() => null);
       billingPlan = String(j?.plan || "free");
-      billingProToken = String(j?.pro_token || "");
     } catch {}
   }
 
@@ -150,26 +148,6 @@
     } catch {}
   }
 
-  function loadAnalyticsKey() {
-    try {
-      const key = window.localStorage.getItem(ANALYTICS_KEY) || "";
-      if (qs("money-admin-key")) qs("money-admin-key").value = String(key).trim();
-      return String(key).trim();
-    } catch {
-      return "";
-    }
-  }
-
-  function saveAnalyticsKey(key) {
-    const clean = String(key || "").trim();
-    try {
-      if (clean) window.localStorage.setItem(ANALYTICS_KEY, clean);
-      else window.localStorage.removeItem(ANALYTICS_KEY);
-    } catch {}
-    if (qs("money-admin-key")) qs("money-admin-key").value = clean;
-    return clean;
-  }
-
   function loadCartPrefs() {
     try {
       cartPrefs = {
@@ -212,6 +190,27 @@
     });
   }
 
+  function allKnownProducts() {
+    const items = [];
+    const seen = new Set();
+    matchedProducts.forEach((product) => {
+      const id = String(product?.id || "").trim();
+      if (!id || seen.has(id)) return;
+      seen.add(id);
+      items.push(product);
+    });
+    catalogCache.forEach((payload) => {
+      const products = Array.isArray(payload?.products) ? payload.products : [];
+      products.forEach((product) => {
+        const id = String(product?.id || "").trim();
+        if (!id || seen.has(id)) return;
+        seen.add(id);
+        items.push(product);
+      });
+    });
+    return items;
+  }
+
   function renderCart(catalogProducts) {
     const wrap = qs("cart-wrap");
     const box = qs("cart-items");
@@ -224,7 +223,8 @@
     }
 
     wrap.style.display = "block";
-    const idx = new Map((catalogProducts || []).map((p) => [String(p?.id || ""), p]));
+    const sourceProducts = Array.isArray(catalogProducts) && catalogProducts.length ? catalogProducts : allKnownProducts();
+    const idx = new Map((sourceProducts || []).map((p) => [String(p?.id || ""), p]));
     box.innerHTML = "";
     cartIds.forEach((id) => {
       const p = idx.get(id);
@@ -244,7 +244,7 @@
         if (!id) return;
         cartIds = cartIds.filter((x) => x !== id);
         saveCart();
-        renderCart(catalogProducts);
+        renderCart(allKnownProducts());
         logCartUpdate().catch(() => {});
       }),
     );
@@ -260,6 +260,128 @@
     const payload = { products: prods, affiliate_disclosure: String(j?.affiliate_disclosure || ""), disclaimer: String(j?.disclaimer || "") };
     catalogCache.set(cat, payload);
     return payload;
+  }
+
+  function buildHubProducts(category, payload) {
+    const prods = Array.isArray(payload?.products) ? payload.products : [];
+    const merged = new Map();
+    matchedProducts.forEach((product) => {
+      const id = String(product?.id || "").trim();
+      if (id) merged.set(id, { ...product, _source: "matched" });
+    });
+    prods.forEach((product) => {
+      const id = String(product?.id || "").trim();
+      if (!id) return;
+      if (merged.has(id)) merged.set(id, { ...merged.get(id), ...product, _source: "matched" });
+      else merged.set(id, { ...product, _source: "explore" });
+    });
+    const cat = String(category || "").trim().toLowerCase();
+    return Array.from(merged.values())
+      .filter((product) => product?._source === "matched" || String(product?.category || "").trim().toLowerCase() === cat)
+      .sort((a, b) => {
+        const am = a?._source === "matched" ? 0 : 1;
+        const bm = b?._source === "matched" ? 0 : 1;
+        if (am !== bm) return am - bm;
+        const ar = Number(a?.rank || 999);
+        const br = Number(b?.rank || 999);
+        if (ar !== br) return ar - br;
+        return String(a?.name || "").localeCompare(String(b?.name || ""));
+      });
+  }
+
+  function renderHub(category, payload) {
+    const wrap = qs("products-wrap");
+    const grid = qs("prods-grid");
+    const prodTitle = qs("prod-title");
+    const prodNote = qs("products-note");
+    const hubNote = qs("hub-note");
+    if (!wrap || !grid) return;
+    wrap.style.display = "block";
+
+    const prods = buildHubProducts(category, payload);
+    const matchCount = prods.filter((product) => product?._source === "matched").length;
+    const topLabel = String(lastScan?.top_label || "").trim();
+    if (prodTitle) {
+      prodTitle.textContent = topLabel && topLabel !== "uncertain" ? `Smart product hub for ${labelToTitle(topLabel)}` : "Smart product hub";
+    }
+    if (prodNote) {
+      const affiliate = String(payload?.affiliate_disclosure || "").trim();
+      const intro =
+        matchCount > 0
+          ? `${matchCount} matched pick${matchCount === 1 ? "" : "s"} appear first. Switch tabs to compare category alternatives in the same hub.`
+          : "Compare curated products by category in one place, then shortlist what you want to try.";
+      prodNote.textContent = [intro, affiliate].filter(Boolean).join(" ");
+      prodNote.style.display = "block";
+    }
+    if (hubNote) {
+      hubNote.textContent =
+        "DermIQ helps you compare and shortlist products here. When you click a store button, checkout finishes on Amazon, Flipkart, or PharmEasy.";
+    }
+
+    grid.innerHTML = "";
+    if (!prods.length) {
+      grid.innerHTML = `<div class="products-note">No products found for this category yet.</div>`;
+      return;
+    }
+
+    prods.slice(0, 18).forEach((p) => {
+      const id = String(p?.id || "");
+      const name = String(p?.name || "Product");
+      const reason = String(p?.reason || "");
+      const icon = productIcon(id);
+      const badge = String(p?.pick_badge || "").trim();
+      const links = Array.isArray(p?.buy_links) ? p.buy_links : [];
+      const linksHtml = links
+        .slice(0, 2)
+        .map((l) => {
+          const url = String(l?.url || "").trim();
+          const label = String(l?.name || "Buy").trim();
+          if (!url) return "";
+          const href = outHref(url, label, id);
+          return `<a href="${href}" target="_blank" rel="noreferrer noopener sponsored" class="prod-buy">Buy on ${label} →</a>`;
+        })
+        .join("");
+
+      const inCart = cartIds.includes(id);
+      grid.innerHTML += `<div class="prod-card">
+        <div class="prod-img">
+          ${icon}
+          ${badge ? `<span class="prod-tag-badge tag-spf">${badge}</span>` : ""}
+        </div>
+        <div class="prod-body">
+          <div class="prod-name">${name}</div>
+          <div class="prod-why">${p?._source === "matched" ? "Matched after your scan. " : ""}${reason}</div>
+          <div class="prod-actions">
+            <button class="btn-mini pri" type="button" data-add="${id}">${inCart ? "Added" : "Add to cart"}</button>
+            <button class="btn-mini" type="button" data-view="${id}">Show links</button>
+          </div>
+          <div class="prod-links" id="links-${id}" style="display:none">${linksHtml || "<span class='prod-why'>No buy links</span>"}</div>
+        </div>
+      </div>`;
+    });
+
+    grid.querySelectorAll("[data-add]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const id = String(b.getAttribute("data-add") || "").trim();
+        if (!id) return;
+        if (!cartIds.includes(id)) cartIds.push(id);
+        cartIds = cartIds.slice(0, 30);
+        saveCart();
+        renderHub(category, payload);
+        renderCart(prods);
+        logCartUpdate().catch(() => {});
+      }),
+    );
+    grid.querySelectorAll("[data-view]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const id = String(b.getAttribute("data-view") || "").trim();
+        const el = document.getElementById("links-" + id);
+        if (!el) return;
+        el.style.display = el.style.display === "none" ? "flex" : "none";
+      }),
+    );
+
+    renderCart(prods);
   }
 
   function renderExplorerList(category, payload) {
@@ -338,12 +460,13 @@
   async function loadExplorer(category) {
     exploreCategory = String(category || "").trim().toLowerCase() || "sunscreen";
     const payload = await fetchCatalog(exploreCategory);
+    const hubProducts = buildHubProducts(exploreCategory, payload);
     await logTrackerEvent("product_view", {
       category: exploreCategory,
-      product_ids: (Array.isArray(payload?.products) ? payload.products : []).slice(0, 18).map((p) => String(p?.id || "")).filter(Boolean),
+      product_ids: hubProducts.slice(0, 18).map((p) => String(p?.id || "")).filter(Boolean),
       scan_id: scanId || "",
     });
-    renderExplorerList(exploreCategory, payload);
+    renderHub(exploreCategory, payload);
   }
 
   async function restoreCartFromServer() {
@@ -422,17 +545,6 @@
 
     await logTrackerEvent("routine_generated_ui", { product_ids: cartIds.slice(0, 30), scan_id: scanId || "" });
     rw?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
-  function renderMoneyList(id, rows, builder) {
-    const el = qs(id);
-    if (!el) return;
-    const list = Array.isArray(rows) ? rows : [];
-    if (!list.length) {
-      el.innerHTML = `<div class="money-empty">No data yet.</div>`;
-      return;
-    }
-    el.innerHTML = list.map(builder).join("");
   }
 
   function renderMoneySummary(data) {
@@ -533,6 +645,10 @@
     if (results) results.style.display = "none";
     const products = qs("products-wrap");
     if (products) products.style.display = "none";
+    const cart = qs("cart-wrap");
+    if (cart) cart.style.display = "none";
+    const routine = qs("routine-wrap");
+    if (routine) routine.style.display = "none";
     const fb = qs("feedback-wrap");
     if (fb) fb.style.display = "none";
   }
@@ -624,10 +740,6 @@
         `<div style="font-size:.875rem;line-height:1.65;color:var(--w)">${String(msg || "")}</div>` +
         `<div style="font-size:.76rem;margin-top:10px;color:rgba(255,184,48,.7)">Tips: Natural lighting · Hold phone steady · Close-up of skin only · No flash</div>` +
         `</div>`;
-      const up = document.getElementById("upgrade-btn");
-      up?.addEventListener("click", () => startUpgrade());
-      const lk = document.getElementById("pro-link-btn");
-      lk?.addEventListener("click", () => linkProFromInput());
     }
     const rm = qs("result-main");
     const gc = qs("guidance-card");
@@ -649,11 +761,7 @@
         (Number.isFinite(max) && max > 0
           ? `<div style="font-size:.76rem;margin-top:10px;color:rgba(255,184,48,.7)">Free plan: ${max} scans/day</div>`
           : ``) +
-        `<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;align-items:center">` +
-        `<button class="btn-ghost" id="upgrade-btn" type="button">Upgrade to Pro</button>` +
-        `<input id="pro-code-in" placeholder="Have a Pro code? Paste here" style="flex:1;min-width:210px;padding:8px 12px;border-radius:12px;border:1px solid var(--border2);background:rgba(255,255,255,.03);color:var(--w);outline:none"/>` +
-        `<button class="btn-ghost" id="pro-link-btn" type="button">Unlock</button>` +
-        `</div>` +
+        `<div style="font-size:.76rem;margin-top:10px;color:rgba(255,184,48,.7)">Keep your shortlist and routine ready, then come back for the next scan window.</div>` +
         `</div>`;
     }
     const rm = qs("result-main");
@@ -662,44 +770,6 @@
     if (rm) rm.style.display = "none";
     if (gc) gc.style.display = "none";
     if (pw) pw.style.display = "none";
-  }
-
-  async function startUpgrade() {
-    try {
-      const sid = await ensureSession();
-      if (!sid) return alert("Please refresh and try again.");
-      const r = await fetch("/billing/checkout", { method: "POST", headers: { "X-Session-Id": sid } });
-      if (!r.ok) {
-        const t = await r.text().catch(() => "");
-        return alert(t || "Billing is not configured yet.");
-      }
-      const j = await r.json().catch(() => null);
-      const url = String(j?.url || "").trim();
-      if (!url) return alert("Billing is not configured yet.");
-      window.open(url, "_blank", "noopener,noreferrer");
-    } catch {
-      alert("Could not start upgrade. Please try again.");
-    }
-  }
-
-  async function linkProFromInput() {
-    try {
-      const sid = await ensureSession();
-      if (!sid) return;
-      const inp = document.getElementById("pro-code-in");
-      const tok = String(inp?.value || "").trim();
-      if (!tok) return alert("Paste your Pro code first.");
-      const r = await fetch("/billing/link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Session-Id": sid },
-        body: JSON.stringify({ pro_token: tok }),
-      });
-      if (!r.ok) return alert("Invalid Pro code.");
-      await refreshBilling();
-      alert("Pro unlocked on this device.");
-    } catch {
-      alert("Could not unlock Pro. Try again.");
-    }
   }
 
   function showResults(d) {
@@ -798,7 +868,8 @@
     }
 
     // Products
-    const prods = Array.isArray(d?.products) ? d.products : [];
+    matchedProducts = String(d?.top_label || "") === "uncertain" ? [] : (Array.isArray(d?.products) ? d.products : []);
+    const prods = [];
     const prodWrap = qs("products-wrap");
     const grid = qs("prods-grid");
     const prodTitle = qs("prod-title");
@@ -808,9 +879,9 @@
       tierTagEl.textContent = "";
       tierTagEl.style.display = "none";
     }
-    if (prodTitle) prodTitle.textContent = "Matched products";
+    if (prodTitle) prodTitle.textContent = "Smart product hub";
     if (grid) grid.innerHTML = "";
-    if (prodWrap) prodWrap.style.display = prods.length ? "block" : "none";
+    if (prodWrap) prodWrap.style.display = "none";
     if (String(d?.top_label || "") === "uncertain") {
       if (prodWrap) prodWrap.style.display = "none";
       if (grid) grid.innerHTML = "";
@@ -867,10 +938,16 @@
     if (thanks) thanks.style.display = "none";
     document.querySelectorAll(".fb-btn").forEach((b) => (b.disabled = false));
 
-    // Product explorer becomes available after the first scan.
-    const exploreWrap = qs("explore-wrap");
-    if (exploreWrap) exploreWrap.style.display = "block";
-    loadExplorer(exploreCategory).catch(() => {});
+    if (String(d?.top_label || "") !== "uncertain") {
+      loadExplorer(exploreCategory).catch(() => {});
+    } else {
+      const prodWrap = qs("products-wrap");
+      const cartWrap = qs("cart-wrap");
+      const routineWrap = qs("routine-wrap");
+      if (prodWrap) prodWrap.style.display = "none";
+      if (cartWrap) cartWrap.style.display = "none";
+      if (routineWrap) routineWrap.style.display = "none";
+    }
 
     results?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -971,11 +1048,9 @@
 
   // Explorer + cart init (minimal: hidden until after first scan)
   loadCart();
-  loadAnalyticsKey();
   applyCartPrefs(cartPrefs);
   restoreCartFromServer().catch(() => {});
-  refreshMoneyDashboard().catch(() => {});
-  const catBox = qs("explore-cats");
+  const catBox = qs("hub-cats");
   catBox?.querySelectorAll(".chip").forEach((b) =>
     b.addEventListener("click", () => {
       const cat = String(b.getAttribute("data-cat") || "").trim();
@@ -1007,13 +1082,6 @@
   qs("pref-note")?.addEventListener("change", () => {
     logCartUpdate().catch(() => {});
   });
-  qs("btn-money-refresh")?.addEventListener("click", () => {
-    refreshMoneyDashboard().catch((err) => alert(String(err?.message || "Could not load money dashboard.")));
-  });
-  qs("btn-money-unlock")?.addEventListener("click", () => {
-    refreshMoneyDashboard().catch((err) => alert(String(err?.message || "Could not unlock owner view.")));
-  });
-
   /* Scroll reveals */
   const obs = new IntersectionObserver(
     (entries) => {
