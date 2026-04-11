@@ -312,6 +312,7 @@ nav{
 .products-card{padding:24px;border-radius:var(--rl);background:var(--glass);border:1px solid var(--border);backdrop-filter:blur(16px)}
 .products-hdr{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:20px}
 .products-title{font-family:var(--font-display);font-size:1rem;font-weight:700}
+.products-note{margin-top:6px;font-size:.78rem;line-height:1.5;color:rgba(255,255,255,.64);max-width:72ch}
 .prods-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:14px}
 .prod-card{border-radius:var(--r);background:rgba(255,255,255,.02);border:1px solid var(--border);overflow:hidden;transition:all .3s;cursor:pointer}
 .prod-card:hover{border-color:var(--teal-b);transform:translateY(-5px);box-shadow:0 20px 50px rgba(0,0,0,.5)}
@@ -553,6 +554,7 @@ footer{position:relative;z-index:1;padding:44px clamp(20px,5%,80px) 28px;border-
           <div>
             <div id="prod-tier-tag" class="tier-tag tt1" style="margin-bottom:6px"></div>
             <div class="products-title" id="prod-title">Recommended products</div>
+            <div class="products-note" id="products-note"></div>
           </div>
         </div>
         <div class="prods-grid" id="prods-grid"></div>

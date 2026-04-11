@@ -1,6 +1,7 @@
 {
   "version": 1,
   "currency": "USD",
+  "affiliate_disclosure": "Some links may be affiliate links; we may earn a commission at no extra cost to you.",
   "products": [
     {
       "id": "gentle-cleanser",

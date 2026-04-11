@@ -175,3 +175,41 @@ Frontend environment variables (Next.js):
 - `NEXT_PUBLIC_API_URL` — backend base URL (required for production).
 - `NEXT_PUBLIC_CONTACT_EMAIL` — footer contact email.
 - `NEXT_PUBLIC_GITHUB_URL` — optional footer link.
+
+---
+
+## Monetization (affiliate + freemium + consult + Pro)
+
+### Affiliate links
+
+Backend env vars (optional):
+
+- `DERMIQ_AMAZON_TAG` — appends `?tag=...` to Amazon links
+- `DERMIQ_FLIPKART_AFFID` — appends `?affid=...` to Flipkart links
+- `DERMIQ_PHARMEASY_AFFID` — appends `utm_term=...` to PharmEasy links
+- `DERMIQ_AMAZON_DISCLOSURE` — optional extra disclosure text (Amazon requires specific wording when you use Associates)
+
+The landing UI also shows `affiliate_disclosure` from `products.json` near the Buy buttons.
+
+### Freemium daily scan limit
+
+- `FREEMIUM_DAILY_MAX` (default `3`) — free scans/day per anonymous session id.
+
+### Doctor referral button (escalation)
+
+- `CONSULT_URL` — booking link (optional)
+- `CONSULT_LABEL` — button text (default: `Consult a clinician`)
+
+### Pro subscriptions (Stripe — optional)
+
+Stripe Checkout + webhooks (no Stripe SDK required):
+
+- `STRIPE_SECRET_KEY`
+- `STRIPE_PRICE_ID`
+- `STRIPE_SUCCESS_URL`
+- `STRIPE_CANCEL_URL`
+- `STRIPE_WEBHOOK_SECRET`
+
+Webhook endpoint:
+
+- `/billing/webhook/stripe`

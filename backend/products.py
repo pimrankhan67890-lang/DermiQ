@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from backend.affiliate import affiliate_url
+
 ROOT = Path(__file__).resolve().parent.parent
 PRODUCTS_CANDIDATES = [ROOT / "products.json", ROOT / "product.json"]
 
@@ -142,11 +144,11 @@ def product_buy_links(product: Dict[str, Any]) -> List[Dict[str, str]]:
             name = str(item.get("name", "")).strip()
             url = str(item.get("url", "")).strip()
             if name and url:
-                links.append({"name": name, "url": url})
+                links.append({"name": name, "url": affiliate_url(name, url)})
 
     buy_url = str(product.get("buy_url", "")).strip()
     if not links and buy_url:
-        links.append({"name": "Buy / View", "url": buy_url})
+        links.append({"name": "Buy / View", "url": affiliate_url("buy", buy_url)})
     return links
 
 

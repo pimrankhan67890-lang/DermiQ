@@ -15,11 +15,26 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
 from backend.advice import advice_for_label
+from backend.billing import (
+    create_manual_pro_for_session,
+    get_billing_status,
+    link_session_to_pro_token,
+    stripe_create_checkout_url,
+    stripe_handle_webhook,
+)
 from backend.products import filter_products_for_top3, load_products, public_product
 from backend.security import InMemoryRateLimiter, RateLimit
 from backend.quality import check_image_quality
 from backend.skin_infer import load_labels, load_tf_model, predict_pil
-from backend.tracker import assess_escalation, add_event, create_session, delete_session, get_events
+from backend.tracker import (
+    assess_escalation,
+    add_event,
+    create_session,
+    delete_session,
+    get_daily_scans,
+    get_events,
+    incr_daily_scans,
+)
 
 app = FastAPI(title="Skin Check API", version="0.1.0")
 
@@ -31,11 +46,14 @@ _predict_rate = RateLimit(
     max_requests=int(os.getenv("PREDICT_RATE_MAX", "30")),
     window_seconds=int(os.getenv("PREDICT_RATE_WINDOW_SECONDS", "600")),
 )
+_freemium_daily_max = int(os.getenv("FREEMIUM_DAILY_MAX", "3"))
 _max_upload_bytes = int(os.getenv("MAX_UPLOAD_BYTES", str(10 * 1024 * 1024)))  # 10MB
 _max_image_pixels = int(os.getenv("MAX_IMAGE_PIXELS", str(12_000_000)))  # ~12 MP
 _landing_dir = Path(__file__).resolve().parent.parent / "landing"
 _landing_index = _landing_dir / "index.html"
 _enable_telemetry = str(os.getenv("ENABLE_TELEMETRY", "0")).strip() in {"1", "true", "yes", "on"}
+_consult_url = str(os.getenv("CONSULT_URL", "")).strip()
+_consult_label = str(os.getenv("CONSULT_LABEL", "Consult a clinician")).strip()
 
 
 def _cors_allow_origins() -> List[str]:
@@ -156,6 +174,65 @@ async def tracker_delete(payload: Dict[str, Any]) -> Dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/billing/status")
+async def billing_status(request: Request) -> Dict[str, Any]:
+    sid = str(request.headers.get("X-Session-Id", "")).strip()
+    st = get_billing_status(sid)
+    return {"plan": st.plan, "pro_token": st.pro_token if st.plan == "pro" else ""}
+
+
+@app.post("/billing/link")
+async def billing_link(request: Request, payload: Dict[str, Any]) -> Dict[str, Any]:
+    sid = str(request.headers.get("X-Session-Id", "")).strip()
+    tok = str(payload.get("pro_token", "")).strip()
+    ok = link_session_to_pro_token(sid, tok)
+    if not ok:
+        raise HTTPException(status_code=400, detail="Invalid Pro code.")
+    st = get_billing_status(sid)
+    return {"status": "ok", "plan": st.plan}
+
+
+@app.post("/billing/unlock")
+async def billing_unlock(request: Request, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Manual unlock helper (optional).
+
+    Set DERMIQ_PRO_MASTER_CODE to a secret string, then call this endpoint with:
+      {"master_code": "..."}
+
+    This creates a Pro token and links it to the current session (useful before Stripe is configured).
+    """
+    master = str(os.getenv("DERMIQ_PRO_MASTER_CODE", "")).strip()
+    if not master:
+        raise HTTPException(status_code=501, detail="Manual unlock not enabled.")
+    if str(payload.get("master_code", "")).strip() != master:
+        raise HTTPException(status_code=403, detail="Invalid code.")
+    sid = str(request.headers.get("X-Session-Id", "")).strip()
+    tok = create_manual_pro_for_session(sid)
+    if not tok:
+        raise HTTPException(status_code=400, detail="Missing session.")
+    return {"status": "ok", "plan": "pro", "pro_token": tok}
+
+
+@app.post("/billing/checkout")
+async def billing_checkout(request: Request) -> Dict[str, Any]:
+    sid = str(request.headers.get("X-Session-Id", "")).strip()
+    url, err = stripe_create_checkout_url(sid)
+    if not url:
+        raise HTTPException(status_code=501, detail=err or "Billing not available.")
+    return {"url": url}
+
+
+@app.post("/billing/webhook/stripe")
+async def billing_webhook_stripe(request: Request) -> Dict[str, Any]:
+    raw = await request.body()
+    sig = str(request.headers.get("Stripe-Signature", "")).strip()
+    ok, msg = stripe_handle_webhook(raw, sig)
+    if not ok:
+        raise HTTPException(status_code=400, detail=msg)
+    return {"status": "ok", "message": msg}
+
+
 @app.get("/", include_in_schema=False)
 def root():
     if _landing_index.exists():
@@ -169,6 +246,28 @@ async def predict_endpoint(request: Request, file: UploadFile = File(...)) -> Di
     ip = request.client.host if request.client else ""
     if not _rate_limiter.allow(f"predict:{ip}", _predict_rate):
         raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
+
+    # Freemium daily limit (per tracker session id; Pro bypasses this).
+    sid = str(request.headers.get("X-Session-Id", "")).strip()
+    plan = "free"
+    if sid:
+        try:
+            plan = get_billing_status(sid).plan
+        except Exception:
+            plan = "free"
+    if sid and plan != "pro" and _freemium_daily_max > 0:
+        used = get_daily_scans(sid)
+        if used >= _freemium_daily_max:
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "code": "freemium_limit",
+                    "message": f"Daily free scan limit reached ({_freemium_daily_max}/day).",
+                    "daily_max": _freemium_daily_max,
+                    "daily_used": used,
+                    "daily_remaining": 0,
+                },
+            )
 
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Please upload an image file.")
@@ -214,6 +313,10 @@ async def predict_endpoint(request: Request, file: UploadFile = File(...)) -> Di
     top3_payload = [{"label": lbl, "prob": float(prob)} for lbl, prob in top3]
     products = [public_product(p) for p in filter_products_for_top3(products_payload, top3_payload, limit=6)]
 
+    affiliate_disclosure = str(products_payload.get("affiliate_disclosure", "")).strip()
+    amazon_required = str(os.getenv("DERMIQ_AMAZON_DISCLOSURE", "")).strip()
+    affiliate_line = " ".join([x for x in [affiliate_disclosure, amazon_required] if x])
+
     response: Dict[str, Any] = {
         "scan_id": scan_id,
         "top_label": top_label,
@@ -222,6 +325,7 @@ async def predict_endpoint(request: Request, file: UploadFile = File(...)) -> Di
         "advice": advice_for_label(top_label),
         "products": products,
         "disclaimer": str(products_payload.get("disclaimer", "")).strip(),
+        "affiliate_disclosure": affiliate_line,
         "model_backend": result.backend,
         "notes": result.notes,
         "safety": (
@@ -230,10 +334,21 @@ async def predict_endpoint(request: Request, file: UploadFile = File(...)) -> Di
         ),
     }
 
-    # If the client supplies a tracker session id, store analysis event (no image bytes stored).
-    sid = str(request.headers.get("X-Session-Id", "")).strip()
+    # If the client supplies a tracker session id, store analysis event (no image bytes stored)
+    # and increment daily usage.
     if sid:
         try:
+            new_used = incr_daily_scans(sid)
+            response["usage"] = {
+                "plan": plan,
+                "daily_max": _freemium_daily_max if plan != "pro" else None,
+                "daily_used": new_used,
+                "daily_remaining": (
+                    max(0, int(_freemium_daily_max) - int(new_used))
+                    if (_freemium_daily_max > 0 and plan != "pro")
+                    else None
+                ),
+            }
             add_event(
                 sid,
                 "analysis",
@@ -246,6 +361,15 @@ async def predict_endpoint(request: Request, file: UploadFile = File(...)) -> Di
                     "scan_id": scan_id,
                 },
             )
+            events = get_events(sid, limit=200)
+            esc = assess_escalation(events)
+            response["escalation"] = {
+                "should_consult": bool(esc.should_consult),
+                "reason": str(esc.reason or ""),
+                "level": str(esc.level or "none"),
+                "consult_url": _consult_url,
+                "consult_label": _consult_label,
+            }
         except Exception:
             pass
     return response

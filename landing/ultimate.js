@@ -40,6 +40,55 @@
   let currentFile = null;
   let scanId = null;
   let lastScan = null;
+  let sessionId = null;
+  let billingPlan = "free";
+  let billingProToken = "";
+
+  function loadSessionId() {
+    try {
+      const s = window.localStorage.getItem("dermiq_session_id");
+      sessionId = String(s || "").trim() || null;
+    } catch {
+      sessionId = null;
+    }
+  }
+
+  async function ensureSession() {
+    if (sessionId) return sessionId;
+    loadSessionId();
+    if (sessionId) return sessionId;
+    try {
+      const r = await fetch("/tracker/session", { method: "POST" });
+      if (!r.ok) return null;
+      const j = await r.json().catch(() => null);
+      const sid = String(j?.session_id || "").trim();
+      if (!sid) return null;
+      sessionId = sid;
+      try {
+        window.localStorage.setItem("dermiq_session_id", sid);
+      } catch {}
+      return sid;
+    } catch {
+      return null;
+    }
+  }
+
+  // Fire-and-forget so the first scan already has a session id.
+  ensureSession().catch(() => {});
+
+  async function refreshBilling() {
+    try {
+      const sid = await ensureSession();
+      if (!sid) return;
+      const r = await fetch("/billing/status", { method: "GET", headers: { "X-Session-Id": sid } });
+      if (!r.ok) return;
+      const j = await r.json().catch(() => null);
+      billingPlan = String(j?.plan || "free");
+      billingProToken = String(j?.pro_token || "");
+    } catch {}
+  }
+
+  refreshBilling().catch(() => {});
 
   function labelToTitle(label) {
     const s = String(label || "").trim();
@@ -186,11 +235,82 @@
         `<div style="font-size:.875rem;line-height:1.65;color:var(--w)">${String(msg || "")}</div>` +
         `<div style="font-size:.76rem;margin-top:10px;color:rgba(255,184,48,.7)">Tips: Natural lighting · Hold phone steady · Close-up of skin only · No flash</div>` +
         `</div>`;
+      const up = document.getElementById("upgrade-btn");
+      up?.addEventListener("click", () => startUpgrade());
+      const lk = document.getElementById("pro-link-btn");
+      lk?.addEventListener("click", () => linkProFromInput());
     }
     const rm = qs("result-main");
     const gc = qs("guidance-card");
     if (rm) rm.style.display = "none";
     if (gc) gc.style.display = "none";
+  }
+
+  function showFreemiumLimit(detail) {
+    const results = qs("results");
+    if (results) results.style.display = "block";
+    const alertBox = qs("alert-box");
+    const max = Number(detail?.daily_max);
+    const msg = String(detail?.message || "Daily free scan limit reached. Please try again tomorrow.");
+    if (alertBox) {
+      alertBox.innerHTML =
+        `<div class="alert alert-upgrade">` +
+        `<div class="alert-title">⏳ Limit reached</div>` +
+        `<div style="font-size:.875rem;line-height:1.65;color:var(--w)">${msg}</div>` +
+        (Number.isFinite(max) && max > 0
+          ? `<div style="font-size:.76rem;margin-top:10px;color:rgba(255,184,48,.7)">Free plan: ${max} scans/day</div>`
+          : ``) +
+        `<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;align-items:center">` +
+        `<button class="btn-ghost" id="upgrade-btn" type="button">Upgrade to Pro</button>` +
+        `<input id="pro-code-in" placeholder="Have a Pro code? Paste here" style="flex:1;min-width:210px;padding:8px 12px;border-radius:12px;border:1px solid var(--border2);background:rgba(255,255,255,.03);color:var(--w);outline:none"/>` +
+        `<button class="btn-ghost" id="pro-link-btn" type="button">Unlock</button>` +
+        `</div>` +
+        `</div>`;
+    }
+    const rm = qs("result-main");
+    const gc = qs("guidance-card");
+    const pw = qs("products-wrap");
+    if (rm) rm.style.display = "none";
+    if (gc) gc.style.display = "none";
+    if (pw) pw.style.display = "none";
+  }
+
+  async function startUpgrade() {
+    try {
+      const sid = await ensureSession();
+      if (!sid) return alert("Please refresh and try again.");
+      const r = await fetch("/billing/checkout", { method: "POST", headers: { "X-Session-Id": sid } });
+      if (!r.ok) {
+        const t = await r.text().catch(() => "");
+        return alert(t || "Billing is not configured yet.");
+      }
+      const j = await r.json().catch(() => null);
+      const url = String(j?.url || "").trim();
+      if (!url) return alert("Billing is not configured yet.");
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch {
+      alert("Could not start upgrade. Please try again.");
+    }
+  }
+
+  async function linkProFromInput() {
+    try {
+      const sid = await ensureSession();
+      if (!sid) return;
+      const inp = document.getElementById("pro-code-in");
+      const tok = String(inp?.value || "").trim();
+      if (!tok) return alert("Paste your Pro code first.");
+      const r = await fetch("/billing/link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Session-Id": sid },
+        body: JSON.stringify({ pro_token: tok }),
+      });
+      if (!r.ok) return alert("Invalid Pro code.");
+      await refreshBilling();
+      alert("Pro unlocked on this device.");
+    } catch {
+      alert("Could not unlock Pro. Try again.");
+    }
   }
 
   function showResults(d) {
@@ -203,7 +323,20 @@
     if (alertBox) alertBox.innerHTML = "";
 
     const tierTag = qs("tier-tag-el");
-    if (tierTag) tierTag.innerHTML = "";
+    if (tierTag) {
+      tierTag.innerHTML = "";
+      const u = d?.usage;
+      const plan = String(u?.plan || billingPlan || "free");
+      if (plan === "pro") {
+        tierTag.innerHTML = `<div class="tier-tag tt1">Pro plan · Unlimited scans</div>`;
+      } else {
+        const rem = Number(u?.daily_remaining);
+        const max = Number(u?.daily_max);
+        if (Number.isFinite(rem) && Number.isFinite(max) && max > 0) {
+          tierTag.innerHTML = `<div class="tier-tag tt1">Free plan · ${rem} scans left today</div>`;
+        }
+      }
+    }
 
     const topLabel = labelToTitle(d?.top_label);
     const pct = probToPct(d?.top_prob);
@@ -260,11 +393,27 @@
     const actionsEl = qs("r-actions");
     if (actionsEl) actionsEl.innerHTML = "";
 
+    const esc = d?.escalation;
+    if (actionsEl && esc && typeof esc === "object" && esc.should_consult) {
+      const url = String(esc.consult_url || "").trim();
+      const label = String(esc.consult_label || "Consult a clinician").trim();
+      const reason = String(esc.reason || "If symptoms worsen or you're worried, seek care.").trim();
+      const href = url || "#safety";
+      actionsEl.innerHTML = `<div class="action-card ac-avoid">
+        <div class="ac-eye">Consult</div>
+        <div class="ac-item"><span class="ac-dot"></span><span>${reason}</span></div>
+        <div style="margin-top:10px">
+          <a href="${href}" ${url ? 'target="_blank" rel="noreferrer noopener"' : ""} class="btn-ghost">${label} →</a>
+        </div>
+      </div>`;
+    }
+
     // Products
     const prods = Array.isArray(d?.products) ? d.products : [];
     const prodWrap = qs("products-wrap");
     const grid = qs("prods-grid");
     const prodTitle = qs("prod-title");
+    const prodNote = qs("products-note");
     const tierTagEl = qs("prod-tier-tag");
     if (tierTagEl) {
       tierTagEl.textContent = "";
@@ -273,6 +422,11 @@
     if (prodTitle) prodTitle.textContent = "Matched products";
     if (grid) grid.innerHTML = "";
     if (prodWrap) prodWrap.style.display = prods.length ? "block" : "none";
+    if (prodNote) {
+      const a = String(d?.affiliate_disclosure || "").trim();
+      prodNote.textContent = a;
+      prodNote.style.display = a ? "block" : "none";
+    }
 
     if (grid && prods.length) {
       prods.slice(0, 8).forEach((p) => {
@@ -286,7 +440,7 @@
             const url = String(l?.url || "").trim();
             const label = String(l?.name || "Buy").trim();
             if (!url) return "";
-            return `<a href="${url}" target="_blank" rel="noreferrer noopener" class="prod-buy">Buy on ${label} →</a>`;
+            return `<a href="${url}" target="_blank" rel="noreferrer noopener sponsored" class="prod-buy">Buy on ${label} →</a>`;
           })
           .join("");
         grid.innerHTML += `<div class="prod-card">
@@ -328,7 +482,10 @@
     const fd = new FormData();
     fd.append("file", currentFile);
     try {
-      const r = await fetch("/predict", { method: "POST", body: fd });
+      const sid = await ensureSession();
+      const headers = {};
+      if (sid) headers["X-Session-Id"] = sid;
+      const r = await fetch("/predict", { method: "POST", body: fd, headers });
       if (r.status === 422) {
         const j = await r.json().catch(() => null);
         const d = j?.detail;
@@ -343,9 +500,18 @@
         }
       }
       if (r.status === 429) {
-        finishAnim();
-        alert("Too many requests — please wait a few minutes.");
+        const j = await r.json().catch(() => null);
+        const d = j?.detail;
         const btn = qs("scan-btn");
+        const txt = qs("scan-btn-txt");
+        finishAnim();
+        if (d && typeof d === "object" && d.code === "freemium_limit") {
+          showFreemiumLimit(d);
+          if (btn) btn.style.display = "inline-flex";
+          if (txt) txt.textContent = "Try tomorrow";
+          return;
+        }
+        alert("Too many requests — please wait a few minutes.");
         if (btn) btn.style.display = "inline-flex";
         return;
       }
@@ -415,4 +581,3 @@
   );
   document.querySelectorAll(".reveal").forEach((el) => obs.observe(el));
 })();
-

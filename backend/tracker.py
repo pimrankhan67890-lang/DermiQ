@@ -34,6 +34,33 @@ CREATE TABLE IF NOT EXISTS events (
 );
 
 CREATE INDEX IF NOT EXISTS idx_events_session_ts ON events(session_id, ts DESC);
+
+CREATE TABLE IF NOT EXISTS daily_usage (
+  session_id TEXT NOT NULL,
+  day_utc INTEGER NOT NULL,
+  scans INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY(session_id, day_utc),
+  FOREIGN KEY(session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS pro_accounts (
+  pro_token TEXT PRIMARY KEY,
+  created_at INTEGER NOT NULL,
+  source TEXT NOT NULL,
+  stripe_customer_id TEXT,
+  stripe_subscription_id TEXT,
+  stripe_email TEXT,
+  active INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS pro_links (
+  session_id TEXT PRIMARY KEY,
+  pro_token TEXT NOT NULL,
+  linked_at INTEGER NOT NULL,
+  FOREIGN KEY(session_id) REFERENCES sessions(session_id) ON DELETE CASCADE,
+  FOREIGN KEY(pro_token) REFERENCES pro_accounts(pro_token) ON DELETE CASCADE
+);
 """
 
 
@@ -154,6 +181,61 @@ def delete_session(session_id: str) -> None:
         c.close()
 
 
+def _day_utc(ts: Optional[int] = None) -> int:
+    t = int(ts) if ts is not None else _now()
+    return int(t // 86400)
+
+
+def get_daily_scans(session_id: str, day_utc: Optional[int] = None) -> int:
+    session_id = str(session_id or "").strip()
+    if not session_id:
+        return 0
+    init_db()
+    touch_session(session_id)
+    day = int(day_utc) if day_utc is not None else _day_utc()
+    c = _conn()
+    try:
+        cur = c.execute(
+            "SELECT scans FROM daily_usage WHERE session_id=? AND day_utc=?",
+            (session_id, day),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return 0
+        try:
+            return int(row["scans"])
+        except Exception:
+            return 0
+    finally:
+        c.close()
+
+
+def incr_daily_scans(session_id: str, day_utc: Optional[int] = None) -> int:
+    session_id = str(session_id or "").strip()
+    if not session_id:
+        return 0
+    init_db()
+    touch_session(session_id)
+    day = int(day_utc) if day_utc is not None else _day_utc()
+    now = _now()
+    c = _conn()
+    try:
+        c.execute(
+            "INSERT INTO daily_usage(session_id, day_utc, scans, updated_at) VALUES(?,?,?,?) "
+            "ON CONFLICT(session_id, day_utc) DO UPDATE SET scans=scans+1, updated_at=excluded.updated_at",
+            (session_id, day, 1, now),
+        )
+        c.commit()
+        cur = c.execute("SELECT scans FROM daily_usage WHERE session_id=? AND day_utc=?", (session_id, day))
+        row = cur.fetchone()
+        try:
+            return int(row["scans"]) if row is not None else 0
+        except Exception:
+            return 0
+    finally:
+        c.close()
+
+
 @dataclass(frozen=True)
 class Escalation:
     should_consult: bool
@@ -224,4 +306,3 @@ def assess_escalation(events: List[Dict[str, Any]]) -> Escalation:
             return Escalation(True, "Low-confidence results repeatedly.", "caution")
 
     return Escalation(False, "", "none")
-
