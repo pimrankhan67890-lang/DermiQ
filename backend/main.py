@@ -16,6 +16,7 @@ from PIL import Image
 
 from backend.advice import advice_for_label
 from backend.affiliate import affiliate_url
+from backend.auth import exchange_supabase_token, get_supabase_config
 from backend.billing import (
     create_manual_pro_for_session,
     get_billing_status,
@@ -31,13 +32,28 @@ from backend.quality import check_image_quality
 from backend.skin_infer import load_labels, load_tf_model, predict_pil
 from backend.tracker import (
     assess_escalation,
+    assess_user_escalation,
     add_event,
     create_session,
     delete_session,
+    delete_user_data,
     get_analytics_summary,
     get_daily_scans,
     get_events,
+    get_journey_summary,
+    get_profile,
+    get_user_id_for_session,
     incr_daily_scans,
+    link_session_to_user,
+    list_tracked_products,
+    list_user_scans,
+    save_feedback_record,
+    save_follow_up_record,
+    save_routine_plan_record,
+    save_scan_record,
+    save_tracked_products,
+    update_tracked_product_status,
+    upsert_profile,
 )
 
 app = FastAPI(title="Skin Check API", version="0.1.0")
@@ -67,6 +83,30 @@ def _cors_allow_origins() -> List[str]:
     if not raw or raw == "*":
         return ["*"]
     return [o.strip() for o in raw.split(",") if o.strip()]
+
+
+def _session_id(request: Request) -> str:
+    return str(request.headers.get("X-Session-Id", "")).strip()
+
+
+def _current_user(request: Request) -> Dict[str, Any]:
+    sid = _session_id(request)
+    if not sid:
+        return {}
+    user_id = get_user_id_for_session(sid)
+    if not user_id:
+        return {}
+    profile = get_profile(user_id)
+    if not profile:
+        return {}
+    return profile
+
+
+def _require_user(request: Request) -> Dict[str, Any]:
+    profile = _current_user(request)
+    if not profile:
+        raise HTTPException(status_code=401, detail="Sign in required.")
+    return profile
 
 
 # Allow local dev from Next.js (and easy hosting). Tighten via CORS_ALLOW_ORIGINS for production.
@@ -107,6 +147,41 @@ def model_status() -> Dict[str, Any]:
         "notes": note,
         "labels": labels,
     }
+
+
+@app.get("/auth/config")
+def auth_config() -> Dict[str, Any]:
+    cfg = get_supabase_config()
+    return {
+        "enabled": bool(cfg.get("enabled")),
+        "url": str(cfg.get("url") or ""),
+        "anon_key": str(cfg.get("anon_key") or ""),
+        "google_enabled": bool(cfg.get("google_enabled")),
+    }
+
+
+@app.post("/auth/session/exchange")
+async def auth_session_exchange(request: Request, payload: Dict[str, Any]) -> Dict[str, Any]:
+    sid = _session_id(request) or str(payload.get("session_id", "")).strip()
+    if not sid:
+        raise HTTPException(status_code=400, detail="Missing session.")
+    token = str(payload.get("access_token", "")).strip()
+    profile, err = exchange_supabase_token(token)
+    if err:
+        raise HTTPException(status_code=400, detail=err)
+    user_id = str(profile.get("user_id", "")).strip()
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Could not resolve user.")
+    upsert_profile(
+        user_id,
+        email=str(profile.get("email", "")),
+        full_name=str(profile.get("full_name", "")),
+        avatar_url=str(profile.get("avatar_url", "")),
+        provider=str(profile.get("provider", "supabase")),
+    )
+    link_session_to_user(sid, user_id)
+    add_event(sid, "auth_linked", {"user_id": user_id, "provider": str(profile.get("provider", "supabase"))})
+    return {"status": "ok", "user": get_profile(user_id), "journey": get_journey_summary(user_id)}
 
 
 @app.get("/products")
@@ -200,6 +275,19 @@ async def feedback(payload: Dict[str, Any]) -> Dict[str, str]:
             logger.info("feedback=%s", json.dumps(payload, ensure_ascii=False)[:2000])
         except Exception:
             logger.info("feedback=<unserializable>")
+    session_id = str(payload.get("session_id", "")).strip()
+    user_id = get_user_id_for_session(session_id) if session_id else ""
+    try:
+        save_feedback_record(
+            user_id=user_id,
+            session_id=session_id,
+            scan_id=str(payload.get("scan_id", "")).strip(),
+            rating=int(payload.get("rating", 0) or 0),
+            accurate_label=str(payload.get("accurate_label", "")).strip(),
+            notes=str(payload.get("note", "")).strip(),
+        )
+    except Exception:
+        pass
     return {"status": "ok"}
 
 
@@ -256,6 +344,125 @@ async def analytics_summary(
     if not sid:
         raise HTTPException(status_code=403, detail="Analytics key required.")
     return get_analytics_summary(days=days, session_id=sid)
+
+
+@app.get("/journey/summary")
+async def journey_summary(request: Request) -> Dict[str, Any]:
+    profile = _require_user(request)
+    data = get_journey_summary(str(profile.get("user_id", "")))
+    esc = data.get("escalation") if isinstance(data.get("escalation"), dict) else {}
+    data["escalation"] = {
+        **esc,
+        "consult_url": _consult_url,
+        "consult_label": _consult_label,
+    }
+    return data
+
+
+@app.get("/journey/scans")
+async def journey_scans(request: Request, limit: int = 24) -> Dict[str, Any]:
+    profile = _require_user(request)
+    return {"scans": list_user_scans(str(profile.get("user_id", "")), limit=limit)}
+
+
+@app.post("/journey/product-track")
+async def journey_product_track(request: Request, payload: Dict[str, Any]) -> Dict[str, Any]:
+    profile = _require_user(request)
+    user_id = str(profile.get("user_id", ""))
+    selected_ids = payload.get("selected_products", [])
+    if not isinstance(selected_ids, list):
+        selected_ids = []
+    scan_id = str(payload.get("scan_id", "")).strip()
+    prefs = payload.get("preferences", {})
+    if not isinstance(prefs, dict):
+        prefs = {}
+
+    products_payload = load_products()
+    products_list = products_payload.get("products", [])
+    if not isinstance(products_list, list):
+        products_list = []
+    wanted = {str(x).strip() for x in selected_ids if str(x).strip()}
+    selected_products = []
+    for p in products_list:
+        if not isinstance(p, dict):
+            continue
+        pid = str(p.get("id", "")).strip()
+        if pid and pid in wanted:
+            selected_products.append(public_product(p))
+
+    items = save_tracked_products(
+        user_id,
+        selected_products,
+        scan_id=scan_id,
+        default_status=str(payload.get("status", "planned")).strip() or "planned",
+        preferred_store=str(prefs.get("preferred_store", "")).strip(),
+        notes=str(prefs.get("note", "")).strip(),
+    )
+    return {"status": "ok", "products": items}
+
+
+@app.post("/journey/product-status")
+async def journey_product_status(request: Request, payload: Dict[str, Any]) -> Dict[str, Any]:
+    profile = _require_user(request)
+    item = update_tracked_product_status(
+        str(profile.get("user_id", "")),
+        str(payload.get("product_id", "")).strip(),
+        str(payload.get("status", "planned")).strip() or "planned",
+        notes=str(payload.get("notes", "")).strip(),
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="Tracked product not found.")
+    return {"status": "ok", "product": item}
+
+
+@app.post("/journey/routine/save")
+async def journey_routine_save(request: Request, payload: Dict[str, Any]) -> Dict[str, Any]:
+    profile = _require_user(request)
+    plan = payload.get("plan", {})
+    if not isinstance(plan, dict):
+        raise HTTPException(status_code=400, detail="Invalid plan.")
+    saved = save_routine_plan_record(
+        str(profile.get("user_id", "")),
+        str(payload.get("scan_id", "")).strip(),
+        str(payload.get("top_label", "")).strip(),
+        plan,
+    )
+    return {"status": "ok", "routine": saved}
+
+
+@app.post("/journey/follow-up")
+async def journey_follow_up(request: Request, payload: Dict[str, Any]) -> Dict[str, Any]:
+    profile = _require_user(request)
+    flags = payload.get("flags", {})
+    if not isinstance(flags, dict):
+        flags = {}
+    item = save_follow_up_record(
+        str(profile.get("user_id", "")),
+        severity=float(payload.get("severity", 0) or 0),
+        notes=str(payload.get("notes", "")).strip(),
+        flags=flags,
+        scan_id=str(payload.get("scan_id", "")).strip(),
+    )
+    esc = assess_user_escalation(str(profile.get("user_id", "")))
+    esc["consult_url"] = _consult_url
+    esc["consult_label"] = _consult_label
+    return {"status": "ok", "follow_up": item, "escalation": esc}
+
+
+@app.get("/journey/escalation")
+async def journey_escalation(request: Request) -> Dict[str, Any]:
+    profile = _require_user(request)
+    esc = assess_user_escalation(str(profile.get("user_id", "")))
+    esc["consult_url"] = _consult_url
+    esc["consult_label"] = _consult_label
+    return esc
+
+
+@app.post("/journey/delete")
+async def journey_delete(request: Request) -> Dict[str, str]:
+    profile = _require_user(request)
+    delete_user_data(str(profile.get("user_id", "")))
+    return {"status": "ok"}
 
 
 @app.post("/routine/plan")
@@ -531,6 +738,20 @@ async def predict_endpoint(request: Request, file: UploadFile = File(...)) -> Di
                     "scan_id": scan_id,
                 },
             )
+            user_id = get_user_id_for_session(sid)
+            if user_id:
+                try:
+                    save_scan_record(
+                        user_id=user_id,
+                        scan_id=scan_id,
+                        session_id=sid,
+                        top_label=top_label,
+                        top_prob=float(top_prob),
+                        top3=response["top3"],
+                        backend=result.backend,
+                    )
+                except Exception:
+                    pass
             events = get_events(sid, limit=200)
             esc = assess_escalation(events)
             response["escalation"] = {

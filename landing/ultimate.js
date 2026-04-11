@@ -558,6 +558,18 @@
     if (savedMsg) savedMsg.style.display = "none";
 
     await logTrackerEvent("routine_generated_ui", { product_ids: cartIds.slice(0, 30), scan_id: scanId || "" });
+    document.dispatchEvent(
+      new CustomEvent("dermiq:routine-ready", {
+        detail: {
+          scan_id: scanId || "",
+          top_label: String(lastScan?.top_label || ""),
+          selected_products: cartIds.slice(0, 30),
+          preferences: prefs,
+          plan,
+          safety: String(j?.safety || ""),
+        },
+      }),
+    );
     rw?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -1041,6 +1053,7 @@
         model_backend: String(d?.model_backend || ""),
       };
       showResults(d);
+      document.dispatchEvent(new CustomEvent("dermiq:scan-result", { detail: { ...lastScan, usage: d?.usage || null } }));
     } catch {
       finishAnim();
       alert("Analysis failed — please check your connection and try again.");
@@ -1065,6 +1078,7 @@
           ts: Date.now(),
           rating: acc ? 1 : -1,
           scan_id: scanId,
+          session_id: sessionId || "",
           scan: lastScan || undefined,
         }),
         keepalive: true,
@@ -1126,6 +1140,19 @@
     if (qs("save-name")) qs("save-name").value = savedName;
     if (qs("save-email")) qs("save-email").value = savedEmail;
   } catch {}
+  window.DermIQ = {
+    ensureSession,
+    getSessionId: () => sessionId,
+    getLastScan: () => (lastScan ? { ...lastScan } : null),
+    getScanId: () => scanId,
+    getCartState: () => {
+      loadCartPrefs();
+      return {
+        product_ids: cartIds.slice(0, 30),
+        preferences: { ...cartPrefs },
+      };
+    },
+  };
   /* Scroll reveals */
   const obs = new IntersectionObserver(
     (entries) => {

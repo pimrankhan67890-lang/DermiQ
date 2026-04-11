@@ -101,6 +101,8 @@ nav{
 .dash-pill{padding:9px 22px;border-radius:100px;background:var(--teal);color:#030608;font-size:.82rem;font-weight:700;text-decoration:none;font-family:var(--font-body);transition:opacity .2s}
 .dash-pill:hover{opacity:.88}
 #uname-nav{font-size:.82rem;color:var(--w3)}
+.auth-pill{display:none;padding:8px 14px;border-radius:100px;border:1px solid var(--border2);color:var(--w3);font-size:.8rem}
+.auth-link{display:none}
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    HERO
@@ -374,6 +376,35 @@ nav{
 .save-progress-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
 .save-progress input{flex:1;min-width:180px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--border2);color:var(--w);font-family:var(--font-body)}
 .save-progress-msg{margin-top:10px;font-size:.78rem;color:rgba(0,240,204,.85);display:none}
+.journey-prompt,.journey-wrap{
+  display:none;margin-top:18px;padding:22px;border-radius:var(--rl);
+  background:var(--glass);border:1px solid var(--border);backdrop-filter:blur(20px);
+}
+.journey-prompt .products-title,.journey-wrap .products-title{margin-bottom:6px}
+.journey-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:14px}
+.journey-stat{padding:14px;border-radius:16px;background:rgba(255,255,255,.02);border:1px solid var(--border)}
+.journey-stat-k{font-size:.72rem;color:var(--w3);margin-bottom:4px}
+.journey-stat-v{font-family:var(--font-display);font-size:1.25rem;font-weight:700}
+.journey-list{margin-top:14px;display:grid;gap:10px}
+.journey-item,.product-track-row,.followup-row{
+  padding:14px;border-radius:16px;background:rgba(255,255,255,.02);border:1px solid var(--border);
+}
+.journey-item-top,.product-track-top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.journey-item-sub,.journey-copy{font-size:.8rem;color:var(--w3);line-height:1.6}
+.status-chip{padding:4px 10px;border-radius:999px;border:1px solid var(--teal-b);background:var(--teal-dim);color:var(--teal);font-size:.68rem;font-weight:700;text-transform:uppercase}
+.status-chip.caution{border-color:var(--amber-b);background:var(--amber-dim);color:var(--amber)}
+.status-chip.urgent{border-color:var(--coral-b);background:var(--coral-dim);color:var(--coral)}
+.product-statuses{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.status-btn{padding:7px 11px;border-radius:999px;border:1px solid var(--border2);background:transparent;color:var(--w3);font-size:.74rem;cursor:pointer}
+.status-btn:hover,.status-btn.on{border-color:var(--teal-b);background:var(--teal-dim);color:var(--teal)}
+.journey-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;margin-top:14px}
+@media(max-width:860px){.journey-grid{grid-template-columns:1fr}}
+.followup-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:12px}
+.followup-fields input,.followup-fields textarea{
+  width:100%;padding:12px 14px;border-radius:14px;border:1px solid var(--border2);background:rgba(255,255,255,.03);color:var(--w);font:inherit;
+}
+.followup-flags{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;color:var(--w2);font-size:.82rem}
+.followup-msg{display:none;margin-top:10px;color:var(--teal);font-size:.78rem}
 
 .hub-note{margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.025);border:1px solid var(--border);font-size:.76rem;line-height:1.6;color:rgba(255,255,255,.7)}
 
@@ -495,6 +526,10 @@ footer{position:relative;z-index:1;padding:44px clamp(20px,5%,80px) 28px;border-
     <li><a href="#safety">Safety</a></li>
   </ul>
   <div class="nav-r">
+    <span id="auth-pill" class="auth-pill">Anonymous mode</span>
+    <a id="journey-link" class="btn-ghost auth-link" href="#journey">My Journey</a>
+    <button id="btn-google-auth" class="btn-ghost" type="button">Sign in with Google</button>
+    <button id="btn-logout" class="btn-ghost auth-link" type="button">Logout</button>
     <a class="btn-pill-teal" href="#scan">Try for free</a>
   </div>
 </nav>
@@ -668,6 +703,68 @@ footer{position:relative;z-index:1;padding:44px clamp(20px,5%,80px) 28px;border-
       </div>
     </div>
 
+    <div id="journey-prompt" class="journey-prompt">
+      <div class="products-title">Save this to your journey</div>
+      <div class="products-note">After your first useful result, sign in with Google to keep scan history, tracked products, follow-ups, and escalation support across devices.</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+        <button id="btn-google-auth-inline" class="btn-ghost" type="button">Continue with Google</button>
+        <a class="btn-ghost" href="#journey">See what gets saved</a>
+      </div>
+    </div>
+
+    <div id="journey" class="journey-wrap">
+      <div class="products-hdr">
+        <div>
+          <div class="products-title">My Journey</div>
+          <div class="products-note" id="journey-copy">Track progress, routine adherence, and when it’s time to seek care.</div>
+        </div>
+      </div>
+      <div class="journey-row" id="journey-stats">
+        <div class="journey-stat"><div class="journey-stat-k">Total scans</div><div class="journey-stat-v" id="journey-stat-scans">0</div></div>
+        <div class="journey-stat"><div class="journey-stat-k">Tracked products</div><div class="journey-stat-v" id="journey-stat-products">0</div></div>
+        <div class="journey-stat"><div class="journey-stat-k">Active products</div><div class="journey-stat-v" id="journey-stat-active">0</div></div>
+        <div class="journey-stat"><div class="journey-stat-k">Weekly check-ins</div><div class="journey-stat-v" id="journey-stat-followups">0</div></div>
+      </div>
+      <div class="journey-grid">
+        <div>
+          <div class="journey-item" id="journey-escalation">
+            <div class="journey-item-top">
+              <div class="products-title" style="font-size:1rem;margin:0">Escalation check</div>
+              <span id="journey-escalation-level" class="status-chip">None</span>
+            </div>
+            <div class="journey-copy" id="journey-escalation-reason">Once you log follow-ups, DermIQ will warn you if symptoms stay severe, worsen, or look risky.</div>
+            <div style="margin-top:12px;display:none" id="journey-escalation-cta-wrap">
+              <a id="journey-escalation-cta" class="btn-ghost" href="#safety">Consult a clinician</a>
+            </div>
+          </div>
+          <div class="journey-list" id="journey-products"></div>
+        </div>
+        <div>
+          <div class="followup-row">
+            <div class="products-title" style="font-size:1rem">Weekly follow-up</div>
+            <div class="products-note">Add one quick progress check so DermIQ can look for improvement or warning signs.</div>
+            <div class="followup-fields">
+              <input id="followup-severity" type="number" min="0" max="10" step="1" placeholder="Severity 0 to 10" />
+              <input id="followup-notes" type="text" placeholder="What changed this week?" />
+            </div>
+            <div class="followup-flags">
+              <label><input type="checkbox" id="flag-fever" /> Fever</label>
+              <label><input type="checkbox" id="flag-spreading" /> Spreading fast</label>
+              <label><input type="checkbox" id="flag-bleeding" /> Bleeding</label>
+              <label><input type="checkbox" id="flag-eye" /> Eye involvement</label>
+              <label><input type="checkbox" id="flag-pain" /> Severe pain</label>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+              <button id="btn-followup-save" class="btn-ghost" type="button">Save follow-up</button>
+              <button id="btn-journey-delete" class="btn-ghost" type="button">Delete my data</button>
+            </div>
+            <div class="followup-msg" id="followup-msg">Saved. DermIQ updated your journey.</div>
+          </div>
+          <div class="journey-list" id="journey-scans"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- FEEDBACK -->
     <div id="feedback-wrap">
       <div class="fb-q">Was this analysis helpful and accurate?</div>
@@ -741,6 +838,8 @@ footer{position:relative;z-index:1;padding:44px clamp(20px,5%,80px) 28px;border-
   </div>
 </footer>
 
-  <script defer src="./ultimate.js?v=20260411"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="./ultimate.js?v=20260411b"></script>
+  <script defer src="./journey.js?v=20260411b"></script>
 </body>
 </html>
