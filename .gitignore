@@ -26,6 +26,8 @@ backend_data/
 
 # Large datasets / archives (do not commit)
 archive.zip
+files.zip
+_files_unzip/
 data/train/
 data/_incoming_archive/
 

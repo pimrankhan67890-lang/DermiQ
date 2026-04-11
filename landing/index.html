@@ -1,388 +1,637 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DermIQ — AI Skin Intelligence</title>
-    <meta name="description" content="AI-powered skin intelligence. Upload a photo and get non-diagnostic skin insights in seconds." />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="./styles.css" />
-  </head>
-  <body>
-    <div class="ambient ambient-1"></div>
-    <div class="ambient ambient-2"></div>
-    <div class="ambient ambient-3"></div>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DermIQ — AI Skin Intelligence</title>
+<meta name="description" content="AI-powered skin intelligence. Upload a photo to get non-diagnostic skin insights, confidence scores, and product recommendations.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=Cabinet+Grotesk:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   DERMIQ ULTIMATE — CSS FOUNDATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+:root{
+  --bg:#030608;
+  --bg1:#070f16;
+  --bg2:#0b1721;
+  --bg3:#0f2030;
+  --teal:#00f0cc;
+  --teal2:#00c4a7;
+  --teal-glow:rgba(0,240,204,0.15);
+  --teal-dim:rgba(0,240,204,0.08);
+  --teal-b:rgba(0,240,204,0.2);
+  --coral:#ff5757;
+  --coral-dim:rgba(255,87,87,0.08);
+  --coral-b:rgba(255,87,87,0.2);
+  --amber:#ffb830;
+  --amber-dim:rgba(255,184,48,0.08);
+  --amber-b:rgba(255,184,48,0.2);
+  --w:#e8f0f7;
+  --w2:#a0b4c4;
+  --w3:#4a6070;
+  --border:rgba(255,255,255,0.06);
+  --border2:rgba(255,255,255,0.1);
+  --glass:rgba(11,23,33,0.9);
+  --r:16px; --rl:24px;
+  --font-display:'Clash Display',sans-serif;
+  --font-body:'Cabinet Grotesk',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--font-body);background:var(--bg);color:var(--w);overflow-x:hidden;min-height:100vh;cursor:default}
 
-    <!-- NAV -->
-    <nav>
-      <div class="logo">Derm<span>IQ</span></div>
-      <ul class="nav-links">
-        <li><a href="#how">How it works</a></li>
-        <li><a href="#products">Products</a></li>
-        <li><a href="#safety">Safety</a></li>
-      </ul>
-      <a class="nav-cta" href="#demo">Try for free</a>
-    </nav>
+/* ── GRAIN ── */
+body::before{
+  content:'';position:fixed;inset:0;z-index:9998;pointer-events:none;opacity:.35;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+}
 
-    <!-- HERO -->
-    <section class="hero">
-      <div class="hero-grid max-w">
-        <div class="hero-left">
-          <div class="hero-badge">
-            <div class="badge-dot"></div>
-            <span class="badge-text">AI-Powered Skin Intelligence</span>
-          </div>
-          <h1>Your skin,<br /><span class="accent">decoded</span> by<br /><span class="accent-coral">AI.</span></h1>
-          <p class="hero-sub">
-            Upload one photo. Get AI-powered skin condition insights, confidence scores, and personalised product recommendations — in seconds.
-          </p>
-          <div class="hero-actions">
-            <a href="#demo" class="btn-primary"><span>📸</span> Analyse my skin</a>
-            <a href="#how" class="btn-secondary">How it works →</a>
-          </div>
-          <div class="hero-stats">
-            <div>
-              <div class="stat-num">8+</div>
-              <div class="stat-label">Conditions detected</div>
-            </div>
-            <div>
-              <div class="stat-num">92%</div>
-              <div class="stat-label">Avg. confidence score</div>
-            </div>
-            <div>
-              <div class="stat-num">Free</div>
-              <div class="stat-label">Always free to use</div>
-            </div>
-          </div>
+/* ── AMBIENT SYSTEM ── */
+.amb{position:fixed;pointer-events:none;z-index:0;border-radius:50%;filter:blur(90px);will-change:transform}
+.a1{width:700px;height:700px;top:-200px;left:-200px;background:radial-gradient(circle,rgba(0,240,204,0.06)0%,transparent 65%);animation:a1move 25s ease-in-out infinite alternate}
+.a2{width:500px;height:500px;bottom:-100px;right:-150px;background:radial-gradient(circle,rgba(255,87,87,0.05)0%,transparent 65%);animation:a2move 30s ease-in-out infinite alternate}
+.a3{width:400px;height:400px;top:40%;left:50%;transform:translate(-50%,-50%);background:radial-gradient(circle,rgba(255,184,48,0.03)0%,transparent 65%);animation:pulse3 18s ease-in-out infinite}
+@keyframes a1move{to{transform:translate(100px,80px)}}
+@keyframes a2move{to{transform:translate(-80px,-100px)}}
+@keyframes pulse3{0%,100%{opacity:.4;transform:translate(-50%,-50%) scale(1)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.3)}}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   WARM-UP SCREEN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+#warmup{
+  position:fixed;inset:0;z-index:1000;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;
+  transition:opacity .8s ease, transform .8s ease;
+}
+#warmup.hidden{opacity:0;transform:scale(1.03);pointer-events:none}
+.wu-logo-wrap{position:relative}
+.wu-logo{font-family:var(--font-display);font-size:2.4rem;font-weight:700;letter-spacing:-.02em;
+  background:linear-gradient(135deg,var(--teal),var(--w));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.wu-ring{position:absolute;inset:-16px;border:1px solid var(--teal-b);border-radius:50%;animation:spinSlow 8s linear infinite}
+.wu-ring2{position:absolute;inset:-28px;border:1px solid rgba(0,240,204,.08);border-radius:50%;animation:spinSlow 14s linear infinite reverse}
+@keyframes spinSlow{to{transform:rotate(360deg)}}
+.wu-msg{font-size:.9rem;color:var(--w3);text-align:center;max-width:320px;line-height:1.65;font-weight:400}
+.wu-track{width:200px;height:2px;background:rgba(255,255,255,.06);border-radius:100px;overflow:hidden}
+.wu-fill{height:100%;background:linear-gradient(90deg,var(--teal2),var(--teal));border-radius:100px;width:0%;animation:wubar 45s linear forwards}
+@keyframes wubar{0%{width:0%}50%{width:72%}80%{width:88%}100%{width:95%}}
+.wu-hint{font-size:.72rem;color:rgba(74,96,112,.6);letter-spacing:.04em}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   NAVIGATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  padding:0 clamp(20px,5%,80px);height:64px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(3,6,8,.8);backdrop-filter:blur(28px) saturate(1.4);
+  border-bottom:1px solid var(--border);
+}
+.logo{font-family:var(--font-display);font-weight:700;font-size:1.4rem;letter-spacing:-.02em;
+  background:linear-gradient(90deg,var(--teal),var(--w) 55%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none}
+.nav-links{display:flex;align-items:center;gap:32px;list-style:none}
+.nav-links a{font-size:.85rem;color:var(--w3);text-decoration:none;transition:color .2s;font-weight:400}
+.nav-links a:hover{color:var(--w)}
+@media(max-width:700px){.nav-links{display:none}}
+.nav-r{display:flex;align-items:center;gap:8px}
+.btn-ghost{padding:8px 18px;border-radius:100px;background:transparent;border:1px solid var(--border2);color:var(--w);font-size:.82rem;cursor:pointer;font-family:var(--font-body);transition:all .2s;font-weight:400}
+.btn-ghost:hover{background:rgba(255,255,255,.05)}
+.btn-pill-teal{padding:9px 22px;border-radius:100px;background:var(--teal-dim);border:1px solid var(--teal-b);color:var(--teal);font-size:.82rem;cursor:pointer;font-family:var(--font-body);font-weight:500;transition:all .2s}
+.btn-pill-teal:hover{background:rgba(0,240,204,.15)}
+.dash-pill{padding:9px 22px;border-radius:100px;background:var(--teal);color:#030608;font-size:.82rem;font-weight:700;text-decoration:none;font-family:var(--font-body);transition:opacity .2s}
+.dash-pill:hover{opacity:.88}
+#uname-nav{font-size:.82rem;color:var(--w3)}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   HERO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.hero{
+  position:relative;z-index:1;
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:100px clamp(20px,5%,80px) 60px;text-align:center;
+}
+.hero-inner{max-width:820px}
+.hero-eyebrow{
+  display:inline-flex;align-items:center;gap:10px;
+  padding:7px 18px 7px 10px;border:1px solid var(--teal-b);border-radius:100px;
+  background:var(--teal-dim);margin-bottom:32px;
+  animation:fadeUp .9s ease both;
+}
+.eyebrow-dot{width:7px;height:7px;border-radius:50%;background:var(--teal);animation:blink 2s ease-in-out infinite;flex-shrink:0}
+@keyframes blink{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,240,204,0)}50%{opacity:.3;box-shadow:0 0 0 4px rgba(0,240,204,0)}}
+.eyebrow-text{font-size:.72rem;color:var(--teal);letter-spacing:.1em;text-transform:uppercase;font-weight:500}
+.hero h1{
+  font-family:var(--font-display);
+  font-size:clamp(3rem,7vw,5.4rem);
+  font-weight:700;line-height:.98;letter-spacing:-.04em;
+  animation:fadeUp .9s .1s ease both;
+}
+.h1-line2{display:block;margin-top:.1em}
+.h1-teal{
+  background:linear-gradient(90deg,var(--teal),#7fffee);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.h1-coral{
+  background:linear-gradient(90deg,var(--coral),#ffaaaa);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.hero-sub{
+  margin:22px auto 0;color:var(--w3);font-size:1.1rem;line-height:1.72;max-width:520px;
+  font-weight:300;animation:fadeUp .9s .2s ease both;
+}
+.hero-actions{display:flex;gap:14px;justify-content:center;margin-top:38px;flex-wrap:wrap;animation:fadeUp .9s .3s ease both}
+.btn-cta{
+  display:inline-flex;align-items:center;gap:10px;padding:15px 36px;border-radius:100px;
+  background:var(--teal);color:#030608;font-family:var(--font-body);font-weight:700;
+  font-size:.95rem;border:none;cursor:pointer;transition:all .28s;text-decoration:none;
+  position:relative;overflow:hidden;
+}
+.btn-cta::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);transform:translateX(-100%);transition:transform .5s}
+.btn-cta:hover::after{transform:translateX(100%)}
+.btn-cta:hover{transform:translateY(-3px);box-shadow:0 16px 48px rgba(0,240,204,.3)}
+.btn-sec{
+  display:inline-flex;align-items:center;gap:10px;padding:15px 32px;border-radius:100px;
+  background:transparent;color:var(--w);font-family:var(--font-body);font-size:.95rem;
+  border:1px solid var(--border2);cursor:pointer;transition:all .25s;text-decoration:none;
+}
+.btn-sec:hover{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.18)}
+
+/* hero stats */
+.hero-stats{
+  display:flex;gap:0;justify-content:center;margin-top:52px;
+  border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;
+  animation:fadeUp .9s .4s ease both;max-width:520px;margin-left:auto;margin-right:auto;
+}
+.hstat{flex:1;padding:20px 16px;text-align:center;border-right:1px solid var(--border)}
+.hstat:last-child{border-right:none}
+.hstat-n{font-family:var(--font-display);font-size:1.5rem;font-weight:700;color:var(--teal)}
+.hstat-l{font-size:.72rem;color:var(--w3);margin-top:2px;font-weight:400}
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   SCAN SECTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.scan-sec{position:relative;z-index:1;padding:80px clamp(20px,5%,80px)}
+.scan-wrap{max-width:860px;margin:0 auto}
+.sec-eyebrow{font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:12px;font-weight:500}
+.sec-title{font-family:var(--font-display);font-size:clamp(1.8rem,3.5vw,2.6rem);font-weight:700;line-height:1.1;letter-spacing:-.03em;margin-bottom:36px}
+
+/* drop zone */
+#dropzone{
+  border:1.5px dashed rgba(0,240,204,.2);border-radius:var(--rl);
+  padding:56px 36px;text-align:center;cursor:pointer;
+  transition:all .35s;position:relative;overflow:hidden;
+  background:radial-gradient(ellipse at 50% -20%,rgba(0,240,204,.05),transparent 60%);
+}
+#dropzone:hover,#dropzone.over{border-color:var(--teal);background:radial-gradient(ellipse at 50% -10%,rgba(0,240,204,.09),transparent 60%)}
+#dropzone input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
+.dz-orb{
+  width:72px;height:72px;border-radius:50%;
+  background:var(--teal-dim);border:1px solid var(--teal-b);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 18px;font-size:1.8rem;
+  transition:transform .35s;
+  position:relative;
+}
+.dz-orb::before{
+  content:'';position:absolute;inset:-6px;border-radius:50%;
+  border:1px solid rgba(0,240,204,.1);
+  animation:orbPulse 2.5s ease-in-out infinite;
+}
+@keyframes orbPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.15);opacity:.5}}
+#dropzone:hover .dz-orb{transform:scale(1.08)}
+.dz-title{font-family:var(--font-display);font-size:1.05rem;font-weight:600;margin-bottom:6px}
+.dz-sub{font-size:.83rem;color:var(--w3)}
+#preview-wrap{display:none;margin-top:24px;animation:fadeUp .4s ease}
+#preview-img{max-width:240px;max-height:240px;object-fit:cover;border-radius:var(--r);border:1px solid var(--border2)}
+.scan-cta{text-align:center;margin-top:20px}
+
+/* ── SCAN PROGRESS ── */
+#scan-progress{
+  display:none;margin-top:28px;
+  padding:28px 32px;border-radius:var(--rl);
+  background:var(--glass);border:1px solid var(--border);
+  backdrop-filter:blur(20px);
+}
+.sp-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:8px}
+.sp-title{font-family:var(--font-display);font-size:.9rem;font-weight:600;color:var(--teal)}
+.sp-pct{font-family:var(--font-display);font-size:.9rem;font-weight:700;color:var(--w3)}
+.sp-bar-track{height:2px;background:rgba(255,255,255,.06);border-radius:100px;overflow:hidden;margin-bottom:24px}
+.sp-bar-fill{height:100%;background:linear-gradient(90deg,var(--teal2),var(--teal));border-radius:100px;width:0%;transition:width .6s cubic-bezier(.4,0,.2,1);box-shadow:0 0 10px rgba(0,240,204,.4)}
+.sp-steps{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:560px){.sp-steps{grid-template-columns:1fr}}
+.sp-step{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;transition:all .4s;opacity:.3;border:1px solid transparent}
+.sp-step.active{opacity:1;background:var(--teal-dim);border-color:var(--teal-b)}
+.sp-step.done{opacity:.6}
+.sp-dot{width:8px;height:8px;border-radius:50%;background:var(--w3);flex-shrink:0;transition:all .4s}
+.sp-step.active .sp-dot{background:var(--teal);box-shadow:0 0 8px var(--teal);animation:dotPulse 1.2s ease-in-out infinite}
+.sp-step.done .sp-dot{background:var(--teal)}
+@keyframes dotPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.5)}}
+.sp-txt{font-size:.8rem;color:var(--w3)}
+.sp-step.active .sp-txt{color:var(--w);font-weight:500}
+.sp-step.done .sp-txt{color:var(--teal)}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   RESULTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+#results{display:none;margin-top:28px;animation:fadeUp .5s ease}
+
+/* top alert banners */
+.alert{padding:18px 22px;border-radius:var(--r);margin-bottom:14px;line-height:1.65}
+.alert-title{font-family:var(--font-display);font-weight:700;font-size:.95rem;margin-bottom:4px}
+.alert-doctor{background:rgba(255,87,87,.07);border:1px solid var(--coral-b);color:var(--w)}
+.alert-doctor .alert-title{color:var(--coral)}
+.alert-redflag{background:rgba(255,40,40,.08);border:1.5px solid rgba(255,40,40,.3);color:var(--w)}
+.alert-redflag .alert-title{color:#ff4444}
+.alert-upgrade{background:var(--amber-dim);border:1px solid var(--amber-b)}
+.alert-upgrade .alert-title{color:var(--amber)}
+.alert-warning{background:var(--coral-dim);border:1px solid var(--coral-b)}
+.alert-warning .alert-title{color:var(--coral)}
+.alert-btn{display:inline-flex;align-items:center;gap:6px;margin-top:12px;padding:8px 20px;border-radius:100px;background:var(--coral);color:#fff;font-size:.8rem;font-weight:700;text-decoration:none;font-family:var(--font-body);border:none;cursor:pointer}
+.nudge-bar{padding:14px 20px;border-radius:var(--r);background:var(--teal-dim);border:1px solid var(--teal-b);font-size:.85rem;color:var(--w);margin-bottom:14px}
+.nudge-bar a{color:var(--teal);cursor:pointer;font-weight:500}
+
+/* main result card */
+.result-main{
+  display:grid;grid-template-columns:1fr auto;gap:24px;
+  padding:28px;border-radius:var(--rl);
+  background:var(--glass);border:1px solid var(--border);
+  backdrop-filter:blur(20px);margin-bottom:14px;
+  align-items:start;
+}
+@media(max-width:560px){.result-main{grid-template-columns:1fr}}
+.tier-tag{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:100px;font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:14px}
+.tt1{background:var(--teal-dim);border:1px solid var(--teal-b);color:var(--teal)}
+.tt2{background:var(--amber-dim);border:1px solid var(--amber-b);color:var(--amber)}
+.tt3{background:var(--coral-dim);border:1px solid var(--coral-b);color:var(--coral)}
+.cond-name{font-family:var(--font-display);font-size:2rem;font-weight:700;letter-spacing:-.03em;text-transform:capitalize;line-height:1;margin-bottom:8px}
+.sev-pill{display:inline-block;padding:3px 12px;border-radius:100px;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em}
+.sp-mild{background:var(--teal-dim);border:1px solid var(--teal-b);color:var(--teal)}
+.sp-moderate{background:var(--amber-dim);border:1px solid var(--amber-b);color:var(--amber)}
+.sp-severe{background:var(--coral-dim);border:1px solid var(--coral-b);color:var(--coral)}
+
+/* confidence ring */
+.conf-ring-wrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+.conf-ring{position:relative;width:88px;height:88px}
+.conf-ring svg{transform:rotate(-90deg)}
+.conf-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:1.1rem;font-weight:700}
+.conf-label-txt{font-size:.65rem;color:var(--w3);letter-spacing:.06em;text-transform:uppercase}
+
+/* predictions */
+.preds{display:flex;flex-direction:column;gap:10px;margin-top:18px;padding-top:18px;border-top:1px solid var(--border)}
+.pred{display:flex;align-items:center;gap:12px}
+.pred-n{font-size:.83rem;width:160px;flex-shrink:0;text-transform:capitalize;color:var(--w3)}
+.pred-n.p1{color:var(--w);font-weight:500}
+.bar-t{flex:1;height:3px;background:rgba(255,255,255,.05);border-radius:100px;overflow:hidden}
+.bar-f{height:100%;border-radius:100px;transition:width 1.3s cubic-bezier(.4,0,.2,1)}
+.bf1{background:linear-gradient(90deg,var(--teal2),var(--teal))}
+.bf2{background:var(--coral)}
+.bf3{background:var(--amber)}
+.pred-p{font-family:var(--font-display);font-size:.78rem;font-weight:700;width:36px;text-align:right;flex-shrink:0}
+
+/* guidance + actions */
+.guidance-card{padding:22px;border-radius:var(--r);background:rgba(0,240,204,.04);border:1px solid rgba(0,240,204,.1);margin-bottom:14px}
+.gc-eye{font-size:.65rem;color:var(--teal);letter-spacing:.1em;text-transform:uppercase;font-weight:500;margin-bottom:10px}
+.gc-text{font-size:.875rem;color:rgba(232,240,247,.8);line-height:1.78}
+.action-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+@media(max-width:540px){.action-row{grid-template-columns:1fr}}
+.action-card{padding:14px 16px;border-radius:14px;background:rgba(255,255,255,.02);border:1px solid var(--border)}
+.ac-eye{font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;font-weight:600;margin-bottom:8px}
+.ac-do .ac-eye{color:var(--teal)}
+.ac-avoid .ac-eye{color:var(--coral)}
+.ac-item{display:flex;align-items:flex-start;gap:7px;font-size:.78rem;color:var(--w3);line-height:1.55;margin-bottom:5px}
+.ac-dot{width:3px;height:3px;border-radius:50%;margin-top:8px;flex-shrink:0}
+.ac-do .ac-dot{background:var(--teal)}
+.ac-avoid .ac-dot{background:var(--coral)}
+.safety-note{padding:12px 16px;border-radius:12px;background:rgba(255,184,48,.04);border:1px solid rgba(255,184,48,.1);font-size:.76rem;color:rgba(255,184,48,.7);line-height:1.55;margin-bottom:14px}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   PRODUCTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+#products-wrap{display:none;margin-bottom:14px;animation:fadeUp .5s .1s ease both}
+.products-card{padding:24px;border-radius:var(--rl);background:var(--glass);border:1px solid var(--border);backdrop-filter:blur(16px)}
+.products-hdr{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:20px}
+.products-title{font-family:var(--font-display);font-size:1rem;font-weight:700}
+.prods-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:14px}
+.prod-card{border-radius:var(--r);background:rgba(255,255,255,.02);border:1px solid var(--border);overflow:hidden;transition:all .3s;cursor:pointer}
+.prod-card:hover{border-color:var(--teal-b);transform:translateY(-5px);box-shadow:0 20px 50px rgba(0,0,0,.5)}
+.prod-img{height:88px;display:flex;align-items:center;justify-content:center;font-size:2.3rem;background:linear-gradient(135deg,var(--bg2),var(--bg3));position:relative}
+.prod-tag-badge{position:absolute;top:8px;right:8px;font-size:.58rem;padding:2px 8px;border-radius:100px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.tag-cleanser{background:rgba(0,240,204,.15);color:var(--teal)}
+.tag-serum{background:rgba(0,240,204,.1);color:var(--teal2)}
+.tag-spf{background:rgba(255,184,48,.12);color:var(--amber)}
+.tag-treatment,.tag-antifungal{background:rgba(255,87,87,.1);color:var(--coral)}
+.tag-doctor{background:rgba(255,87,87,.15);color:var(--coral)}
+.prod-body{padding:12px 14px}
+.prod-name{font-family:var(--font-display);font-size:.85rem;font-weight:600;margin-bottom:4px;line-height:1.25}
+.prod-why{font-size:.7rem;color:var(--w3);line-height:1.55;margin-bottom:10px}
+.prod-foot{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.prod-price{font-family:var(--font-display);font-size:.9rem;font-weight:700}
+.prod-buy{font-size:.68rem;color:var(--teal);border:1px solid var(--teal-b);padding:4px 11px;border-radius:100px;text-decoration:none;transition:all .2s;white-space:nowrap}
+.prod-buy:hover{background:var(--teal-dim)}
+.prod-buy.rx{color:var(--coral);border-color:var(--coral-b)}
+.track-this{width:100%;margin-top:8px;padding:6px;border-radius:8px;background:rgba(255,255,255,.03);border:1px solid var(--border);color:var(--w3);font-size:.7rem;cursor:pointer;font-family:var(--font-body);transition:all .2s}
+.track-this:hover{background:var(--teal-dim);border-color:var(--teal-b);color:var(--teal)}
+.track-this.tracked{background:var(--teal-dim);border-color:var(--teal-b);color:var(--teal)}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   FEEDBACK + TRACKING CTA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+#feedback-wrap{display:none;padding:18px 22px;border-radius:var(--r);background:var(--glass);border:1px solid var(--border);margin-bottom:14px;animation:fadeUp .5s .15s ease}
+.fb-q{font-size:.83rem;color:var(--w3);margin-bottom:12px}
+.fb-row{display:flex;gap:10px;flex-wrap:wrap}
+.fb-btn{display:inline-flex;align-items:center;gap:7px;padding:8px 20px;border-radius:100px;font-size:.8rem;cursor:pointer;font-family:var(--font-body);transition:all .2s;border:1px solid var(--border);background:transparent;color:var(--w3)}
+.fb-btn:hover{background:rgba(255,255,255,.04)}
+.fb-yes:hover,.fb-yes.sel{border-color:var(--teal-b);color:var(--teal);background:var(--teal-dim)}
+.fb-no:hover,.fb-no.sel{border-color:var(--coral-b);color:var(--coral);background:var(--coral-dim)}
+.fb-thanks{font-size:.8rem;color:var(--teal);margin-top:10px;display:none}
+
+#track-cta{display:none;text-align:center;padding:28px 20px;border-radius:var(--rl);background:linear-gradient(135deg,rgba(0,240,204,.04),rgba(0,240,204,.01));border:1px solid var(--teal-b);margin-bottom:14px;animation:fadeUp .5s .2s ease}
+.track-cta-t{font-family:var(--font-display);font-size:1rem;font-weight:700;margin-bottom:6px}
+.track-cta-s{font-size:.82rem;color:var(--w3);margin-bottom:16px;line-height:1.6}
+.btn-start-track{display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:100px;background:transparent;border:1px solid var(--teal-b);color:var(--teal);font-family:var(--font-body);font-size:.875rem;font-weight:600;cursor:pointer;transition:all .25s}
+.btn-start-track:hover{background:var(--teal-dim)}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   HOW IT WORKS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.how-sec{position:relative;z-index:1;padding:80px clamp(20px,5%,80px)}
+.how-inner{max-width:960px;margin:0 auto;text-align:center}
+.how-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin-top:48px;text-align:left}
+.how-card{padding:24px;border-radius:var(--rl);background:var(--glass);border:1px solid var(--border);transition:all .3s;position:relative;overflow:hidden}
+.how-card::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 0% 0%,rgba(0,240,204,.04),transparent 60%);opacity:0;transition:opacity .3s}
+.how-card:hover::before{opacity:1}
+.how-card:hover{border-color:var(--teal-b);transform:translateY(-5px)}
+.how-num{font-family:var(--font-display);font-size:2.5rem;font-weight:700;color:rgba(0,240,204,.07);line-height:1;position:absolute;top:14px;right:18px}
+.how-icon{width:44px;height:44px;border-radius:12px;background:var(--teal-dim);border:1px solid var(--teal-b);display:flex;align-items:center;justify-content:center;font-size:1.2rem;margin-bottom:16px}
+.how-t{font-family:var(--font-display);font-size:.95rem;font-weight:700;margin-bottom:8px}
+.how-d{font-size:.8rem;color:var(--w3);line-height:1.72}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   MANIFESTO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.manifesto{
+  position:relative;z-index:1;
+  padding:100px clamp(20px,5%,80px);
+  text-align:center;
+  background:linear-gradient(180deg,transparent,rgba(0,240,204,.02) 50%,transparent);
+}
+.manifesto-inner{max-width:640px;margin:0 auto}
+.manifesto-quote{
+  font-family:var(--font-display);font-size:clamp(1.5rem,3.5vw,2.4rem);
+  font-weight:700;line-height:1.2;letter-spacing:-.02em;
+  margin-bottom:20px;
+}
+.mq-accent{color:var(--teal)}
+.manifesto-sub{font-size:.9rem;color:var(--w3);line-height:1.7;margin-bottom:32px}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   AUTH MODAL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(12px);z-index:200;display:none;align-items:center;justify-content:center;padding:20px}
+.overlay.open{display:flex}
+.modal{width:100%;max-width:400px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl);padding:36px;position:relative;animation:fadeUp .35s ease}
+.modal-x{position:absolute;top:14px;right:16px;background:transparent;border:none;color:var(--w3);font-size:1.1rem;cursor:pointer;padding:4px;line-height:1}
+.modal-x:hover{color:var(--w)}
+.modal h2{font-family:var(--font-display);font-size:1.4rem;font-weight:700;margin-bottom:4px;letter-spacing:-.02em}
+.modal-sub{font-size:.83rem;color:var(--w3);margin-bottom:24px;line-height:1.5}
+.field{margin-bottom:14px}
+.field label{font-size:.72rem;color:var(--w3);display:block;margin-bottom:5px;letter-spacing:.02em}
+.field input{width:100%;padding:12px 16px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--border2);color:var(--w);font-size:.88rem;font-family:var(--font-body);outline:none;transition:all .2s}
+.field input:focus{border-color:var(--teal-b);background:rgba(0,240,204,.03)}
+.field input::placeholder{color:var(--w3)}
+.form-err{font-size:.77rem;color:var(--coral);margin-top:6px;display:none}
+.submit-btn{width:100%;padding:13px;border-radius:12px;background:var(--teal);color:#030608;font-family:var(--font-body);font-weight:700;font-size:.9rem;border:none;cursor:pointer;margin-top:4px;transition:opacity .2s;display:flex;align-items:center;justify-content:center;gap:8px}
+.submit-btn:hover{opacity:.9}
+.modal-foot{text-align:center;margin-top:18px;font-size:.82rem;color:var(--w3)}
+.modal-foot a{color:var(--teal);cursor:pointer}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   FOOTER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+footer{position:relative;z-index:1;padding:44px clamp(20px,5%,80px) 28px;border-top:1px solid var(--border)}
+.foot-inner{max-width:1100px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.foot-logo{font-family:var(--font-display);font-weight:700;font-size:1.1rem;background:linear-gradient(90deg,var(--teal),var(--w) 55%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.foot-text{font-size:.74rem;color:var(--w3)}
+.foot-links{display:flex;gap:20px}
+.foot-links a{font-size:.74rem;color:var(--w3);text-decoration:none}
+.foot-links a:hover{color:var(--w)}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   UTILITIES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.reveal{opacity:0;transform:translateY(20px);transition:opacity .65s ease,transform .65s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(3,6,8,.2);border-top-color:#030608;border-radius:50%;animation:rot .7s linear infinite}
+.spin-w{border-color:rgba(255,255,255,.15);border-top-color:var(--w)}
+@keyframes rot{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="amb a1"></div><div class="amb a2"></div><div class="amb a3"></div>
+
+<!-- WARM-UP -->
+<div id="warmup">
+  <div class="wu-logo-wrap">
+    <div class="wu-ring"></div>
+    <div class="wu-ring2"></div>
+    <div class="wu-logo">DermIQ</div>
+  </div>
+  <div class="wu-msg">Starting the AI engine — may take ~30 seconds on first visit (free hosting cold start).</div>
+  <div class="wu-track"><div class="wu-fill"></div></div>
+  <div class="wu-hint">Private by default · Not medical advice · Safety-first</div>
+</div>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="logo">DermIQ</a>
+  <ul class="nav-links">
+    <li><a href="#scan">Scan</a></li>
+    <li><a href="#how">How it works</a></li>
+    <li><a href="#products">Products</a></li>
+    <li><a href="#safety">Safety</a></li>
+  </ul>
+  <div class="nav-r">
+    <a class="btn-pill-teal" href="#scan">Try for free</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-inner">
+    <div class="hero-eyebrow"><div class="eyebrow-dot"></div><span class="eyebrow-text">AI-powered · Non-diagnostic · Free</span></div>
+    <h1>
+      Your skin.<br>
+      <span class="h1-line2"><span class="h1-teal">Understood.</span> <span class="h1-coral">Safer.</span></span>
+    </h1>
+    <p class="hero-sub">Upload one photo. Get non-diagnostic skin insights, confidence scores, and matched product links — with safety reminders.</p>
+    <div class="hero-actions">
+      <a href="#scan" class="btn-cta">📸 &nbsp;Analyse my skin now</a>
+      <a href="#how" class="btn-sec">How it works →</a>
+    </div>
+    <div class="hero-stats">
+      <div class="hstat"><div class="hstat-n">8+</div><div class="hstat-l">Conditions</div></div>
+      <div class="hstat"><div class="hstat-n">Fast</div><div class="hstat-l">Results</div></div>
+      <div class="hstat"><div class="hstat-n">Safe</div><div class="hstat-l">Reminders</div></div>
+      <div class="hstat"><div class="hstat-n">Free</div><div class="hstat-l">Forever</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- SCAN -->
+<section class="scan-sec" id="scan">
+  <div class="scan-wrap">
+    <div class="sec-eyebrow reveal">AI Analysis</div>
+    <h2 class="sec-title reveal">Upload your skin photo</h2>
+
+    <div id="dropzone" class="reveal">
+      <input type="file" accept="image/*" id="file-input" onchange="handleFile(event)">
+      <div class="dz-orb">📷</div>
+      <div class="dz-title">Drop your photo here</div>
+      <div class="dz-sub">Or click to browse · JPG, PNG · Max 20MB · All skin tones</div>
+      <div id="preview-wrap"><img id="preview-img" src="" alt="Preview"></div>
+    </div>
+    <div class="scan-cta">
+      <button class="btn-cta" id="scan-btn" style="display:none;margin:20px auto 0" onclick="doScan()">
+        <span id="scan-btn-txt">🔬 &nbsp;Analyse now</span>
+      </button>
+    </div>
+
+    <!-- SCAN PROGRESS -->
+    <div id="scan-progress">
+      <div class="sp-header">
+        <div class="sp-title">Analysing your skin…</div>
+        <div class="sp-pct" id="sp-pct">0%</div>
+      </div>
+      <div class="sp-bar-track"><div class="sp-bar-fill" id="sp-bar"></div></div>
+      <div class="sp-steps">
+        <div class="sp-step" id="ss0"><div class="sp-dot"></div><span class="sp-txt">Checking image quality</span></div>
+        <div class="sp-step" id="ss1"><div class="sp-dot"></div><span class="sp-txt">Preprocessing photo</span></div>
+        <div class="sp-step" id="ss2"><div class="sp-dot"></div><span class="sp-txt">Detecting condition</span></div>
+        <div class="sp-step" id="ss3"><div class="sp-dot"></div><span class="sp-txt">Calculating confidence</span></div>
+        <div class="sp-step" id="ss4"><div class="sp-dot"></div><span class="sp-txt">Building routine advice</span></div>
+        <div class="sp-step" id="ss5"><div class="sp-dot"></div><span class="sp-txt">Matching products</span></div>
+      </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div id="results">
+      <div id="alert-box"></div>
+
+      <div class="result-main" id="result-main">
+        <div>
+          <div id="tier-tag-el"></div>
+          <div class="cond-name" id="r-cond">—</div>
+          <span class="sev-pill" id="r-sev">mild</span>
+          <div class="preds" id="r-preds"></div>
         </div>
-
-        <div class="hero-visual">
-          <div class="phone-wrap">
-            <div class="orb orb-1">Acne<br />87%</div>
-            <div class="orb orb-2">✓ Safe</div>
-            <div class="orb orb-3">🛒 4</div>
-            <div class="phone-frame">
-              <div class="phone-screen">
-                <div class="phone-topbar">
-                  <span class="phone-logo">DermIQ</span>
-                  <div class="phone-avatar">AI</div>
-                </div>
-                <div class="upload-zone" aria-hidden="true">
-                  <div class="scanning-bar"></div>
-                  <div class="upload-icon">📷</div>
-                  <div class="upload-text">Upload skin photo</div>
-                  <div class="upload-sub">JPG, PNG · Max 10MB</div>
-                </div>
-                <div class="result-card">
-                  <div class="result-label">Top result</div>
-                  <div class="result-name">Acne Vulgaris</div>
-                  <div class="confidence-bar-wrap">
-                    <div class="conf-label"><span>Confidence</span><span>87%</span></div>
-                    <div class="conf-track"><div class="conf-fill"></div></div>
-                  </div>
-                </div>
-                <div class="mini-products" aria-hidden="true">
-                  <div class="mini-product">
-                    <span class="mini-product-icon">🧴</span>
-                    <span class="mini-product-name">Salicylic Wash</span>
-                    <span class="mini-product-label">Commonly used</span>
-                  </div>
-                  <div class="mini-product">
-                    <span class="mini-product-icon">☀️</span>
-                    <span class="mini-product-name">SPF 50 Gel</span>
-                    <span class="mini-product-label">Daily care</span>
-                  </div>
-                  <div class="mini-product">
-                    <span class="mini-product-icon">💧</span>
-                    <span class="mini-product-name">Niacinamide</span>
-                    <span class="mini-product-label">May help with</span>
-                  </div>
-                  <div class="mini-product">
-                    <span class="mini-product-icon">🌿</span>
-                    <span class="mini-product-name">Tea Tree Oil</span>
-                    <span class="mini-product-label">General support</span>
-                  </div>
-                </div>
-                <div class="safety-pill">
-                  <span class="safety-icon">⚠️</span>
-                  <span class="safety-text">Not a diagnosis. Consult a dermatologist for treatment.</span>
-                </div>
-              </div>
-            </div>
+        <div class="conf-ring-wrap">
+          <div class="conf-ring">
+            <svg width="88" height="88" viewBox="0 0 88 88">
+              <circle cx="44" cy="44" r="36" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="5"/>
+              <circle id="r-ring" cx="44" cy="44" r="36" fill="none" stroke="#00f0cc" stroke-width="5" stroke-linecap="round" stroke-dasharray="226.2" stroke-dashoffset="226.2" style="transition:stroke-dashoffset 1.5s cubic-bezier(.4,0,.2,1)"/>
+            </svg>
+            <div class="conf-num" id="r-conf-num">0%</div>
           </div>
-
-          <div class="guidance-card" id="trackerCard" hidden>
-            <div class="guidance-label">Routine tracking (optional)</div>
-            <p class="guidance-text">
-              Track what products you use and how symptoms change over time. This helps DermIQ show safer next steps and suggest when to consult
-              a clinician. No photos are stored - only your results and notes.
-            </p>
-            <div class="api-error" id="trackerBanner" hidden></div>
-            <div style="margin-top: 12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-              <button class="product-link" id="trackerEnable" type="button" style="background: transparent;">Enable tracking</button>
-              <button class="product-link" id="trackerRefresh" type="button" style="background: transparent;">Refresh timeline</button>
-              <button class="product-link" id="trackerDelete" type="button" style="background: transparent;">Delete my data</button>
-              <span class="footer-text" id="trackerStatus" style="margin:0;"></span>
-            </div>
-
-            <details id="trackerDetails" class="tracker-details">
-              <summary class="footer-text">Add today's entry</summary>
-              <div class="tracker-grid">
-                <div class="tracker-block">
-                  <div class="tracker-label">Product / routine</div>
-                  <div class="tracker-row">
-                    <input id="routineProduct" class="tracker-input" type="text" placeholder="Product name (e.g., gentle cleanser)" />
-                    <select id="routineAction" class="tracker-input">
-                      <option value="start">Start</option>
-                      <option value="continue">Continue</option>
-                      <option value="stop">Stop</option>
-                    </select>
-                  </div>
-                  <div class="tracker-row">
-                    <input id="routineFrequency" class="tracker-input" type="text" placeholder="How often? (e.g., 1x daily)" />
-                    <input id="routineNotes" class="tracker-input" type="text" placeholder="Notes (optional)" />
-                  </div>
-                  <div style="margin-top: 10px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-                    <button class="product-link" id="routineSave" type="button" style="background: transparent;">Save routine â†’</button>
-                    <span class="footer-text" id="routineStatus" style="margin:0;"></span>
-                  </div>
-                </div>
-
-                <div class="tracker-block">
-                  <div class="tracker-label">Symptoms</div>
-                  <div class="tracker-row">
-                    <label class="footer-text" style="margin:0;">Severity:</label>
-                    <input id="symptomSeverity" type="range" min="0" max="10" step="1" value="0" style="flex: 1;" />
-                    <span class="footer-text" id="symptomSeverityVal" style="margin:0; min-width: 24px; text-align:right;">0</span>
-                  </div>
-                  <div class="tracker-row">
-                    <input id="symptomNotes" class="tracker-input" type="text" placeholder="What changed? (optional)" />
-                  </div>
-                  <div class="tracker-flags">
-                    <label><input type="checkbox" data-flag="fever" /> Fever</label>
-                    <label><input type="checkbox" data-flag="spreading" /> Spreading fast</label>
-                    <label><input type="checkbox" data-flag="bleeding" /> Bleeding</label>
-                    <label><input type="checkbox" data-flag="eye" /> Eye involvement</label>
-                    <label><input type="checkbox" data-flag="severe_pain" /> Severe pain</label>
-                  </div>
-                  <div style="margin-top: 10px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-                    <button class="product-link" id="symptomSave" type="button" style="background: transparent;">Save symptoms â†’</button>
-                    <span class="footer-text" id="symptomStatus" style="margin:0;"></span>
-                  </div>
-                </div>
-              </div>
-            </details>
-
-            <div id="trackerTimeline" class="tracker-timeline" aria-live="polite"></div>
-          </div>
+          <div class="conf-label-txt">Confidence</div>
         </div>
       </div>
-    </section>
 
-    <!-- HOW IT WORKS -->
-    <section class="section-pad" id="how">
-      <div class="max-w">
-        <div class="reveal">
-          <div class="section-label">The process</div>
-          <h2 class="section-title">Three steps to<br />skin clarity</h2>
-        </div>
-        <div class="steps-grid">
-          <div class="step-card reveal">
-            <div class="step-num">01</div>
-            <div class="step-icon">📸</div>
-            <div class="step-title">Upload your photo</div>
-            <p class="step-desc">
-              Take or upload a clear close-up photo of the affected skin area. Works on all skin tones and lighting conditions.
-            </p>
-          </div>
-          <div class="step-card reveal">
-            <div class="step-num">02</div>
-            <div class="step-icon step-icon--coral">🧠</div>
-            <div class="step-title">AI analyses instantly</div>
-            <p class="step-desc">
-              Our model scans for skin conditions, returning a confidence score and uncertainty flag in seconds (educational only).
-            </p>
-          </div>
-          <div class="step-card reveal">
-            <div class="step-num">03</div>
-            <div class="step-icon step-icon--amber">✨</div>
-            <div class="step-title">Get guidance & products</div>
-            <p class="step-desc">
-              Receive safe general skincare guidance and matched product recommendations. Always with a reminder to see a dermatologist.
-            </p>
-          </div>
-        </div>
+      <div class="guidance-card" id="guidance-card">
+        <div class="gc-eye">AI Guidance</div>
+        <div class="gc-text" id="r-guidance"></div>
+        <div class="action-row" id="r-actions"></div>
       </div>
-    </section>
-
-    <!-- SCAN DEMO -->
-    <section class="scan-section" id="demo">
-      <div class="scan-grid">
-        <div class="upload-demo reveal">
-          <div class="corner-accent corner-tl"></div>
-          <div class="corner-accent corner-tr"></div>
-          <div class="corner-accent corner-bl"></div>
-          <div class="corner-accent corner-br"></div>
-          <div class="upload-ring">
-            <div class="upload-ring-inner">🔬</div>
-          </div>
-          <div class="upload-demo-text">Drop image here</div>
-          <div class="upload-demo-sub">or click to browse</div>
-          <button class="upload-btn" type="button">Choose photo →</button>
-        </div>
-        <div class="scan-info reveal">
-          <div>
-            <div class="section-label">Live demo preview</div>
-            <h2 class="section-title section-title--demo">Sample analysis<br />result</h2>
-            <p class="scan-sub">
-              Below shows what a typical output looks like. Confidence, top 3 predictions, and matched products — all generated from a single
-              photo.
-            </p>
-            <div class="api-status" id="apiStatus">API: checking…</div>
-            <div class="muted" id="scanStage" style="margin-top: 6px;"></div>
-            <div class="muted" id="modelStatus" style="margin-top: 6px;"></div>
-            <div class="api-error" id="apiError" hidden></div>
-          </div>
-          <div class="scan-result-card">
-            <div class="result-row">
-              <div class="condition-name" id="topLabel">Acne Vulgaris</div>
-              <div class="confidence-badge" id="topProb">87% match</div>
-            </div>
-            <div class="top-predictions">
-              <div class="pred-item">
-                <span class="pred-name pred-name--top" id="pred1Name">Acne Vulgaris</span>
-                <div class="pred-bar-track"><div class="pred-bar-fill fill-teal" id="pred1Fill" style="width: 87%"></div></div>
-                <span class="pred-pct" id="pred1Pct">87%</span>
-              </div>
-              <div class="pred-item">
-                <span class="pred-name" id="pred2Name">Rosacea</span>
-                <div class="pred-bar-track"><div class="pred-bar-fill fill-coral" id="pred2Fill" style="width: 9%"></div></div>
-                <span class="pred-pct" id="pred2Pct">9%</span>
-              </div>
-              <div class="pred-item">
-                <span class="pred-name" id="pred3Name">Eczema</span>
-                <div class="pred-bar-track"><div class="pred-bar-fill fill-amber" id="pred3Fill" style="width: 4%"></div></div>
-                <span class="pred-pct" id="pred3Pct">4%</span>
-              </div>
-            </div>
-          </div>
-          <div class="guidance-card">
-            <div class="guidance-label">General guidance</div>
-            <p class="guidance-text" id="adviceText">
-              Gentle non-comedogenic cleansers, salicylic acid, and oil-free moisturisers are commonly used for this condition. Avoid heavy
-              creams. Consult a dermatologist before starting any treatment.
-            </p>
-            <p class="guidance-footnote" id="notesText"></p>
-            <div style="margin-top: 12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-              <span class="footer-text" style="margin:0;">Was this helpful?</span>
-              <button class="product-link" id="fbUp" type="button" style="background: transparent;">👍 Yes</button>
-              <button class="product-link" id="fbDown" type="button" style="background: transparent;">👎 No</button>
-              <input
-                id="fbText"
-                type="text"
-                placeholder="Optional feedback (1 line)"
-                style="flex:1; min-width: 220px; border: 1px solid rgba(0,229,196,0.25); background: rgba(10,21,32,0.5); color: var(--white); border-radius: 999px; padding: 8px 12px; outline: none;"
-              />
-              <button class="product-link" id="fbSend" type="button" style="background: transparent;">Send →</button>
-              <span class="footer-text" id="fbStatus" style="margin:0;"></span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+      <div class="safety-note" id="safety">⚠️ DermIQ provides AI-assisted general guidance only — not a medical diagnosis. Always consult a qualified dermatologist for treatment decisions.</div>
+    </div>
 
     <!-- PRODUCTS -->
-    <section class="section-pad" id="products">
-      <div class="max-w">
-        <div class="reveal">
-          <div class="section-label">Smart recommendations</div>
-          <h2 class="section-title">Products matched<br />to your condition</h2>
-        </div>
-        <div class="products-grid" id="productsGrid" aria-live="polite"></div>
-        <div class="muted" id="productsEmpty" style="margin-top: 14px;">
-          Upload a photo above to see products matched to your condition (with real “Buy” links).
-        </div>
-      </div>
-    </section>
-
-    <!-- SAFETY -->
-    <section class="safety-section" id="safety">
-      <div class="max-w">
-        <div class="safety-inner reveal">
+    <div id="products"></div>
+    <div id="products-wrap">
+      <div class="products-card">
+        <div class="products-hdr">
           <div>
-            <div class="safety-pill-big">⚠️ Safety first</div>
-            <h2 class="safety-title">Built with care.<br />Not a diagnosis.</h2>
-          </div>
-          <div class="safety-rules">
-            <div class="safety-rule">
-              <div class="safety-check">✓</div>
-              <span>Never claims to replace a dermatologist or provide final medical diagnosis</span>
-            </div>
-            <div class="safety-rule">
-              <div class="safety-check">✓</div>
-              <span>Low-confidence results always prompt the user to seek professional review</span>
-            </div>
-            <div class="safety-rule">
-              <div class="safety-check">✓</div>
-              <span>Product descriptions say "may help with" — never "cures" or "treats"</span>
-            </div>
-          </div>
-          <div class="safety-rules">
-            <div class="safety-rule">
-              <div class="safety-check">✓</div>
-              <span>Uncertainty flag shown for unclear or low-quality uploaded images</span>
-            </div>
-            <div class="safety-rule">
-              <div class="safety-check">✓</div>
-              <span>No dangerous self-treatment advice is ever generated by the system</span>
-            </div>
-            <div class="safety-rule">
-              <div class="safety-check">✓</div>
-              <span>All outputs include a permanent reminder to consult a medical professional</span>
-            </div>
+            <div id="prod-tier-tag" class="tier-tag tt1" style="margin-bottom:6px"></div>
+            <div class="products-title" id="prod-title">Recommended products</div>
           </div>
         </div>
+        <div class="prods-grid" id="prods-grid"></div>
       </div>
-    </section>
+    </div>
 
-    <!-- CTA -->
-    <section class="section-pad">
-      <div class="max-w cta">
-        <div class="reveal cta-inner">
-          <div class="section-label cta-label">Free forever</div>
-          <h2 class="section-title">Ready to understand<br />your skin?</h2>
-          <p class="cta-sub">
-            Upload a photo and get AI-powered insights in under 5 seconds. No signup needed. No cost. Just clarity.
-          </p>
-          <a href="#demo" class="btn-primary btn-primary--cta">📸 &nbsp;Start free scan now</a>
-        </div>
+    <!-- FEEDBACK -->
+    <div id="feedback-wrap">
+      <div class="fb-q">Was this analysis helpful and accurate?</div>
+      <div class="fb-row">
+        <button class="fb-btn fb-yes" onclick="sendFb(true,this)">👍 &nbsp;Yes, looks accurate</button>
+        <button class="fb-btn fb-no" onclick="sendFb(false,this)">👎 &nbsp;Not quite right</button>
       </div>
-    </section>
+      <div class="fb-thanks">✓ Feedback saved — thank you for helping improve DermIQ.</div>
+    </div>
 
-    <!-- FOOTER -->
-    <footer>
-      <div class="footer-inner">
-        <div>
-          <div class="logo footer-logo">Derm<span>IQ</span></div>
-          <div class="footer-text">AI-powered skin intelligence. Free. Open.</div>
-        </div>
-        <div class="footer-links">
-          <a href="#" id="githubLink" target="_blank" rel="noreferrer noopener">GitHub</a>
-          <a href="./privacy.html">Privacy</a>
-          <a href="./terms.html">Terms</a>
-          <a href="./disclaimer.html">Disclaimer</a>
-          <a href="#" id="contactLink">Contact</a>
-        </div>
-        <div class="footer-text">© <span id="year"></span> DermIQ — Not medical advice.</div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how-sec" id="how">
+  <div class="how-inner">
+    <div class="sec-eyebrow reveal" style="text-align:center">How it works</div>
+    <h2 class="sec-title reveal" style="text-align:center;margin-bottom:0">Four steps to skin clarity</h2>
+    <div class="how-grid">
+      <div class="how-card reveal">
+        <div class="how-num">01</div>
+        <div class="how-icon">📸</div>
+        <div class="how-t">Upload your photo</div>
+        <p class="how-d">Drag and drop or tap to browse. We run a quality check first — brightness, blur, skin detection — so you never get garbage results from a bad photo.</p>
       </div>
-    </footer>
+      <div class="how-card reveal">
+        <div class="how-num">02</div>
+        <div class="how-icon" style="background:var(--coral-dim);border-color:var(--coral-b)">🧠</div>
+        <div class="how-t">AI analyses quickly</div>
+        <p class="how-d">DermIQ scans your photo and returns top possibilities with confidence scores (educational only). Lighting and focus can change results.</p>
+      </div>
+      <div class="how-card reveal">
+        <div class="how-num">03</div>
+        <div class="how-icon" style="background:var(--amber-dim);border-color:var(--amber-b)">📈</div>
+        <div class="how-t">Guidance & products</div>
+        <p class="how-d">You get safe general guidance and matched product links. You can optionally track what you use and how symptoms change over time.</p>
+      </div>
+      <div class="how-card reveal">
+        <div class="how-num">04</div>
+        <div class="how-icon" style="background:var(--coral-dim);border-color:var(--coral-b)">🏥</div>
+        <div class="how-t">Consult when needed</div>
+        <p class="how-d">If you report red-flag symptoms, high severity, or you’re worried, DermIQ will recommend consulting a licensed clinician promptly.</p>
+      </div>
+    </div>
+  </div>
+</section>
 
-    <script defer src="./config.js?v=20260410"></script>
-    <script defer src="./main.js?v=20260410"></script>
-  </body>
+<!-- MANIFESTO -->
+<section class="manifesto">
+  <div class="manifesto-inner reveal">
+    <div class="manifesto-quote">
+      "Everyone deserves to understand their skin.<br>
+      <span class="mq-accent">AI should make healthcare more human,</span><br>
+      not replace the humans in it."
+    </div>
+    <p class="manifesto-sub">DermIQ is built on one belief: skin health shouldn't require expensive consultations for a first opinion. We give people the knowledge to understand what's happening — and the wisdom to know when to seek help.</p>
+    <a href="#scan" class="btn-cta" style="margin:0 auto">Start your skin analysis →</a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="foot-inner">
+    <div><div class="foot-logo">DermIQ</div><div class="foot-text" style="margin-top:3px">AI skin intelligence · Non-diagnostic · Free</div></div>
+    <div class="foot-links">
+      <a href="/privacy.html">Privacy</a>
+      <a href="/terms.html">Terms</a>
+      <a href="/disclaimer.html">Disclaimer</a>
+    </div>
+    <div class="foot-text">© 2025 DermIQ · Not medical advice</div>
+  </div>
+</footer>
+
+  <script defer src="./ultimate.js?v=20260411"></script>
+</body>
 </html>
