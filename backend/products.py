@@ -160,6 +160,16 @@ def public_product(product: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(conditions, list):
         conditions = []
 
+    category = str(product.get("category", "")).strip()
+    tags = product.get("tags", [])
+    if not isinstance(tags, list):
+        tags = []
+    pick_badge = str(product.get("pick_badge", "")).strip()
+    try:
+        rank = int(product.get("rank", 0) or 0)
+    except Exception:
+        rank = 0
+
     # Frontend serves product images from /products/<id>.svg
     image = f"/products/{pid}.svg" if pid else ""
 
@@ -167,7 +177,32 @@ def public_product(product: Dict[str, Any]) -> Dict[str, Any]:
         "id": pid,
         "name": name,
         "reason": reason,
+        "category": category,
+        "tags": [str(t) for t in tags],
+        "pick_badge": pick_badge,
+        "rank": rank,
         "conditions": [str(c) for c in conditions],
         "image": image,
         "buy_links": product_buy_links(product),
     }
+
+
+def list_products(payload: Dict[str, Any], *, category: str = "", limit: int = 100) -> List[Dict[str, Any]]:
+    items = payload.get("products", [])
+    if not isinstance(items, list):
+        return []
+
+    cat = str(category or "").strip().lower()
+    out: List[Dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if cat:
+            c = str(item.get("category", "")).strip().lower()
+            if c != cat:
+                continue
+        out.append(item)
+
+    out.sort(key=lambda p: (int(p.get("rank", 0) or 0), str(p.get("name", "")).lower()))
+    lim = max(1, min(int(limit), 300))
+    return out[:lim]

@@ -43,6 +43,10 @@
   let sessionId = null;
   let billingPlan = "free";
   let billingProToken = "";
+  const CART_KEY = "dermiq_cart_v1";
+  let cartIds = [];
+  let exploreCategory = "sunscreen";
+  const catalogCache = new Map();
 
   function loadSessionId() {
     try {
@@ -105,6 +109,19 @@
     return Math.max(0, Math.min(100, Math.round(n * 100)));
   }
 
+  function outHref(url, store, productId) {
+    const u = String(url || "").trim();
+    if (!u) return "#";
+    const sid = String(sessionId || "").trim();
+    const params = new URLSearchParams();
+    params.set("url", u);
+    if (store) params.set("store", String(store));
+    if (productId) params.set("product_id", String(productId));
+    if (scanId) params.set("scan_id", String(scanId));
+    if (sid) params.set("session_id", sid);
+    return "/out?" + params.toString();
+  }
+
   function productIcon(productId) {
     const s = String(productId || "").toLowerCase();
     if (s.includes("sunscreen") || s.includes("spf")) return "☀️";
@@ -113,6 +130,221 @@
     if (s.includes("cleanser") || s.includes("wash")) return "🧼";
     if (s.includes("cream") || s.includes("ceramide") || s.includes("moist")) return "🧴";
     return "🧴";
+  }
+
+  function loadCart() {
+    try {
+      const raw = window.localStorage.getItem(CART_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      cartIds = Array.isArray(arr) ? arr.map((x) => String(x || "").trim()).filter(Boolean) : [];
+    } catch {
+      cartIds = [];
+    }
+  }
+
+  function saveCart() {
+    try {
+      window.localStorage.setItem(CART_KEY, JSON.stringify(cartIds.slice(0, 30)));
+    } catch {}
+  }
+
+  async function logTrackerEvent(kind, payload) {
+    const sid = await ensureSession();
+    if (!sid) return;
+    try {
+      await fetch("/tracker/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sid, kind, payload: payload || {} }),
+      });
+    } catch {}
+  }
+
+  async function logCartUpdate() {
+    await logTrackerEvent("cart_update", { product_ids: cartIds.slice(0, 30), scan_id: scanId || "" });
+  }
+
+  function renderCart(catalogProducts) {
+    const wrap = qs("cart-wrap");
+    const box = qs("cart-items");
+    if (!wrap || !box) return;
+
+    if (!cartIds.length) {
+      wrap.style.display = "none";
+      box.innerHTML = "";
+      return;
+    }
+
+    wrap.style.display = "block";
+    const idx = new Map((catalogProducts || []).map((p) => [String(p?.id || ""), p]));
+    box.innerHTML = "";
+    cartIds.forEach((id) => {
+      const p = idx.get(id);
+      const name = String(p?.name || id);
+      const cat = String(p?.category || "");
+      box.innerHTML += `<div class="cart-row">
+        <div>
+          <div class="cart-item">${name}</div>
+          <div class="cart-sub">${cat ? "Category: " + cat : ""}</div>
+        </div>
+        <button class="cart-x" type="button" data-rm="${id}">Remove</button>
+      </div>`;
+    });
+    box.querySelectorAll("[data-rm]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const id = String(b.getAttribute("data-rm") || "").trim();
+        if (!id) return;
+        cartIds = cartIds.filter((x) => x !== id);
+        saveCart();
+        renderCart(catalogProducts);
+        logCartUpdate().catch(() => {});
+      }),
+    );
+  }
+
+  async function fetchCatalog(category) {
+    const cat = String(category || "").trim().toLowerCase();
+    if (catalogCache.has(cat)) return catalogCache.get(cat);
+    const r = await fetch(`/products?category=${encodeURIComponent(cat)}&limit=200`);
+    if (!r.ok) throw new Error("catalog");
+    const j = await r.json().catch(() => null);
+    const prods = Array.isArray(j?.products) ? j.products : [];
+    const payload = { products: prods, affiliate_disclosure: String(j?.affiliate_disclosure || ""), disclaimer: String(j?.disclaimer || "") };
+    catalogCache.set(cat, payload);
+    return payload;
+  }
+
+  function renderExplorerList(category, payload) {
+    const wrap = qs("explore-wrap");
+    const grid = qs("explore-grid");
+    if (!wrap || !grid) return;
+    wrap.style.display = "block";
+    const prods = Array.isArray(payload?.products) ? payload.products : [];
+    grid.innerHTML = "";
+
+    if (!prods.length) {
+      grid.innerHTML = `<div class="products-note">No products found for this category yet.</div>`;
+      return;
+    }
+
+    prods.slice(0, 18).forEach((p) => {
+      const id = String(p?.id || "");
+      const name = String(p?.name || "Product");
+      const reason = String(p?.reason || "");
+      const icon = productIcon(id);
+      const badge = String(p?.pick_badge || "").trim();
+      const links = Array.isArray(p?.buy_links) ? p.buy_links : [];
+      const linksHtml = links
+        .slice(0, 2)
+        .map((l) => {
+          const url = String(l?.url || "").trim();
+          const label = String(l?.name || "Buy").trim();
+          if (!url) return "";
+          const href = outHref(url, label, id);
+          return `<a href="${href}" target="_blank" rel="noreferrer noopener sponsored" class="prod-buy">Buy on ${label} →</a>`;
+        })
+        .join("");
+
+      const inCart = cartIds.includes(id);
+      grid.innerHTML += `<div class="prod-card">
+        <div class="prod-img">
+          ${icon}
+          ${badge ? `<span class="prod-tag-badge tag-spf">${badge}</span>` : ""}
+        </div>
+        <div class="prod-body">
+          <div class="prod-name">${name}</div>
+          <div class="prod-why">${reason}</div>
+          <div class="prod-actions">
+            <button class="btn-mini pri" type="button" data-add="${id}">${inCart ? "Added" : "Add to cart"}</button>
+            <button class="btn-mini" type="button" data-view="${id}">Show links</button>
+          </div>
+          <div class="prod-links" id="links-${id}" style="display:none">${linksHtml || "<span class='prod-why'>No buy links</span>"}</div>
+        </div>
+      </div>`;
+    });
+
+    grid.querySelectorAll("[data-add]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const id = String(b.getAttribute("data-add") || "").trim();
+        if (!id) return;
+        if (!cartIds.includes(id)) cartIds.push(id);
+        cartIds = cartIds.slice(0, 30);
+        saveCart();
+        renderExplorerList(category, payload);
+        renderCart(prods);
+        logCartUpdate().catch(() => {});
+      }),
+    );
+    grid.querySelectorAll("[data-view]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const id = String(b.getAttribute("data-view") || "").trim();
+        const el = document.getElementById("links-" + id);
+        if (!el) return;
+        el.style.display = el.style.display === "none" ? "flex" : "none";
+      }),
+    );
+
+    renderCart(prods);
+  }
+
+  async function loadExplorer(category) {
+    exploreCategory = String(category || "").trim().toLowerCase() || "sunscreen";
+    const payload = await fetchCatalog(exploreCategory);
+    renderExplorerList(exploreCategory, payload);
+  }
+
+  async function generateRoutinePlan() {
+    if (!cartIds.length) return alert("Add at least one product to your cart.");
+    const sid = await ensureSession();
+    if (!sid) return alert("Please refresh and try again.");
+
+    const prefs = {
+      sensitive_skin: !!qs("pref-sensitive")?.checked,
+      fragrance_free: !!qs("pref-fragrance")?.checked,
+      pregnancy_safe: !!qs("pref-pregnancy")?.checked,
+      ampm: !!qs("pref-ampm")?.checked,
+    };
+
+    const payload = {
+      scan_id: scanId || "",
+      top_label: String(lastScan?.top_label || ""),
+      selected_products: cartIds.slice(0, 30),
+      preferences: prefs,
+    };
+
+    const r = await fetch("/routine/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Session-Id": sid },
+      body: JSON.stringify(payload),
+    });
+    if (!r.ok) {
+      const t = await r.text().catch(() => "");
+      throw new Error(t || "routine");
+    }
+    const j = await r.json().catch(() => null);
+    const plan = j?.plan || {};
+
+    const rw = qs("routine-wrap");
+    if (rw) rw.style.display = "block";
+    const note = qs("routine-note");
+    if (note) note.textContent = "Built from your selected products" + (lastScan?.top_label ? ` · Based on: ${labelToTitle(lastScan.top_label)}` : "");
+    const safety = qs("routine-safety");
+    if (safety) safety.textContent = "⚠️ " + String(j?.safety || "");
+
+    function renderList(id, arr) {
+      const el = qs(id);
+      if (!el) return;
+      const a = Array.isArray(arr) ? arr : [];
+      el.innerHTML = a.map((x) => `<div class="routine-li">• ${String(x)}</div>`).join("") || `<div class="products-note">No items.</div>`;
+    }
+
+    renderList("routine-am", plan.am);
+    renderList("routine-pm", plan.pm);
+    renderList("routine-weekly", plan.weekly);
+    renderList("routine-avoid", plan.avoid);
+
+    await logTrackerEvent("routine_generated_ui", { product_ids: cartIds.slice(0, 30), scan_id: scanId || "" });
+    rw?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   /* FILE HANDLING */
@@ -422,6 +654,10 @@
     if (prodTitle) prodTitle.textContent = "Matched products";
     if (grid) grid.innerHTML = "";
     if (prodWrap) prodWrap.style.display = prods.length ? "block" : "none";
+    if (String(d?.top_label || "") === "uncertain") {
+      if (prodWrap) prodWrap.style.display = "none";
+      if (grid) grid.innerHTML = "";
+    }
     if (prodNote) {
       const a = String(d?.affiliate_disclosure || "").trim();
       prodNote.textContent = a;
@@ -440,7 +676,8 @@
             const url = String(l?.url || "").trim();
             const label = String(l?.name || "Buy").trim();
             if (!url) return "";
-            return `<a href="${url}" target="_blank" rel="noreferrer noopener sponsored" class="prod-buy">Buy on ${label} →</a>`;
+            const href = outHref(url, label, String(p?.id || ""));
+            return `<a href="${href}" target="_blank" rel="noreferrer noopener sponsored" class="prod-buy">Buy on ${label} →</a>`;
           })
           .join("");
         grid.innerHTML += `<div class="prod-card">
@@ -472,6 +709,11 @@
     const thanks = document.querySelector(".fb-thanks");
     if (thanks) thanks.style.display = "none";
     document.querySelectorAll(".fb-btn").forEach((b) => (b.disabled = false));
+
+    // Product explorer becomes available after the first scan.
+    const exploreWrap = qs("explore-wrap");
+    if (exploreWrap) exploreWrap.style.display = "block";
+    loadExplorer(exploreCategory).catch(() => {});
 
     results?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -570,6 +812,32 @@
   window.doScan = doScan;
   window.sendFb = sendFb;
 
+  // Explorer + cart init (minimal: hidden until after first scan)
+  loadCart();
+  const catBox = qs("explore-cats");
+  catBox?.querySelectorAll(".chip").forEach((b) =>
+    b.addEventListener("click", () => {
+      const cat = String(b.getAttribute("data-cat") || "").trim();
+      if (!cat) return;
+      exploreCategory = cat;
+      catBox.querySelectorAll(".chip").forEach((x) => x.classList.remove("on"));
+      b.classList.add("on");
+      loadExplorer(cat).catch(() => {});
+    }),
+  );
+
+  qs("btn-generate-plan")?.addEventListener("click", () => {
+    generateRoutinePlan().catch(() => alert("Could not generate routine. Please try again."));
+  });
+  qs("btn-clear-cart")?.addEventListener("click", () => {
+    cartIds = [];
+    saveCart();
+    renderCart([]);
+    logCartUpdate().catch(() => {});
+    const rw = qs("routine-wrap");
+    if (rw) rw.style.display = "none";
+  });
+
   /* Scroll reveals */
   const obs = new IntersectionObserver(
     (entries) => {
@@ -581,6 +849,3 @@
   );
   document.querySelectorAll(".reveal").forEach((el) => obs.observe(el));
 })();
-    if (String(d?.top_label || "") === "uncertain") {
-      if (prodWrap) prodWrap.style.display = "none";
-    }

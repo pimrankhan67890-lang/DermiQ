@@ -10,11 +10,12 @@ from typing import Any, Dict, List
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
 from backend.advice import advice_for_label
+from backend.affiliate import affiliate_url
 from backend.billing import (
     create_manual_pro_for_session,
     get_billing_status,
@@ -22,7 +23,9 @@ from backend.billing import (
     stripe_create_checkout_url,
     stripe_handle_webhook,
 )
-from backend.products import filter_products_for_top3, load_products, public_product
+from backend.products import filter_products_for_top3, list_products, load_products, public_product
+from backend.outgoing import normalize_store, validate_outgoing_url
+from backend.routine import build_routine_plan
 from backend.security import InMemoryRateLimiter, RateLimit
 from backend.quality import check_image_quality
 from backend.skin_infer import load_labels, load_tf_model, predict_pil
@@ -104,6 +107,67 @@ def model_status() -> Dict[str, Any]:
     }
 
 
+@app.get("/products")
+def products_catalog(category: str = "", limit: int = 100) -> Dict[str, Any]:
+    """
+    Public product catalog for the landing UI (no prices).
+    """
+    payload = load_products()
+    items = [public_product(p) for p in list_products(payload, category=category, limit=limit)]
+    affiliate_disclosure = str(payload.get("affiliate_disclosure", "")).strip()
+    amazon_required = str(os.getenv("DERMIQ_AMAZON_DISCLOSURE", "")).strip()
+    affiliate_line = " ".join([x for x in [affiliate_disclosure, amazon_required] if x])
+    return {
+        "products": items,
+        "disclaimer": str(payload.get("disclaimer", "")).strip(),
+        "affiliate_disclosure": affiliate_line,
+    }
+
+
+@app.get("/out")
+async def outbound_redirect(
+    request: Request,
+    url: str,
+    store: str = "",
+    product_id: str = "",
+    scan_id: str = "",
+    session_id: str = "",
+) -> RedirectResponse:
+    """
+    Internal redirect for affiliate + click tracking.
+
+    - Validates allowed host
+    - Logs click event (tracker DB if session id exists; stdout telemetry optional)
+    - Redirects (302) to the final affiliate-tagged URL
+    """
+    chk = validate_outgoing_url(url)
+    if not chk.ok:
+        raise HTTPException(status_code=400, detail=f"Invalid outbound link ({chk.reason}).")
+
+    store_name = normalize_store(store, chk.host)
+    final_url = affiliate_url(store_name, url)
+
+    sid = str(request.headers.get("X-Session-Id", "")).strip() or str(session_id or "").strip()
+    click = {
+        "store": store_name,
+        "product_id": str(product_id or "").strip(),
+        "scan_id": str(scan_id or "").strip(),
+        "host": chk.host,
+    }
+    if sid:
+        try:
+            add_event(sid, "product_click", click)
+        except Exception:
+            pass
+    if _enable_telemetry:
+        try:
+            logger.info("event=%s", json.dumps({"kind": "product_click", **click}, ensure_ascii=False)[:2000])
+        except Exception:
+            pass
+
+    return RedirectResponse(url=final_url, status_code=302)
+
+
 @app.post("/events")
 async def events(payload: Dict[str, Any]) -> Dict[str, str]:
     """
@@ -173,6 +237,66 @@ async def tracker_delete(payload: Dict[str, Any]) -> Dict[str, str]:
     sid = str(payload.get("session_id", "")).strip()
     delete_session(sid)
     return {"status": "ok"}
+
+
+@app.post("/routine/plan")
+async def routine_plan(request: Request, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Generate an educational daily routine plan from selected products.
+    """
+    sid = str(request.headers.get("X-Session-Id", "")).strip()
+    scan_id = str(payload.get("scan_id", "")).strip()
+    top_label = str(payload.get("top_label", "")).strip()
+    selected_ids = payload.get("selected_products", [])
+    if not isinstance(selected_ids, list):
+        selected_ids = []
+
+    prefs = payload.get("preferences", {})
+    if not isinstance(prefs, dict):
+        prefs = {}
+
+    products_payload = load_products()
+    products_list = products_payload.get("products", [])
+    if not isinstance(products_list, list):
+        products_list = []
+
+    wanted = {str(x).strip() for x in selected_ids if str(x).strip()}
+    selected_products = []
+    for p in products_list:
+        if not isinstance(p, dict):
+            continue
+        pid = str(p.get("id", "")).strip()
+        if pid and pid in wanted:
+            selected_products.append(public_product(p))
+
+    plan = build_routine_plan(top_label=top_label, selected_products=selected_products, prefs=prefs)
+
+    if sid:
+        try:
+            add_event(
+                sid,
+                "routine_generated",
+                {
+                    "scan_id": scan_id,
+                    "top_label": top_label,
+                    "selected_products": [p.get("id") for p in selected_products],
+                    "preferences": prefs,
+                },
+            )
+        except Exception:
+            pass
+
+    return {
+        "scan_id": scan_id,
+        "top_label": top_label,
+        "selected_products": selected_products,
+        "plan": plan.to_dict(),
+        "safety": (
+            "Educational only — not a medical diagnosis. Stop products if irritation occurs. "
+            "Seek a licensed clinician promptly for severe pain, swelling, fever, spreading rash, bleeding, "
+            "rapid changes, or if you are worried."
+        ),
+    }
 
 
 @app.get("/billing/status")

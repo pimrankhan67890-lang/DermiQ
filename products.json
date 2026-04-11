@@ -6,12 +6,16 @@
     {
       "id": "gentle-cleanser",
       "name": "Gentle Cleanser (Fragrance-Free)",
+      "category": "cleanser",
+      "rank": 10,
+      "pick_badge": "Everyday",
+      "tags": ["fragrance_free", "sensitive"],
       "conditions": ["acne", "rosacea", "eczema", "dryness", "sensitive"],
       "reason": "Cleans without stripping; helps reduce irritation from harsh soaps.",
       "image_path": "assets/products/gentle-cleanser.png",
       "image_url": "https://via.placeholder.com/640x400.png?text=Gentle+Cleanser",
       "buy_links": [
-        {"name": "Amazon", "url": "https://www.amazon.com/s?k=gentle+fragrance-free+cleanser"},
+        {"name": "Amazon", "url": "https://www.amazon.in/s?k=gentle+fragrance+free+cleanser"},
         {"name": "Flipkart", "url": "https://www.flipkart.com/search?q=gentle%20fragrance%20free%20cleanser"},
         {"name": "PharmEasy", "url": "https://pharmeasy.in/search/all?name=gentle%20cleanser"}
       ]
@@ -19,12 +23,16 @@
     {
       "id": "lightweight-moisturizer",
       "name": "Lightweight Moisturizer (Non-Comedogenic)",
+      "category": "moisturizer",
+      "rank": 10,
+      "pick_badge": "Everyday",
+      "tags": ["non_comedogenic", "sensitive"],
       "conditions": ["acne", "dryness", "sensitive"],
       "reason": "Supports the skin barrier while staying light to reduce clogged pores.",
       "image_path": "assets/products/lightweight-moisturizer.png",
       "image_url": "https://via.placeholder.com/640x400.png?text=Lightweight+Moisturizer",
       "buy_links": [
-        {"name": "Amazon", "url": "https://www.amazon.com/s?k=non-comedogenic+moisturizer"},
+        {"name": "Amazon", "url": "https://www.amazon.in/s?k=non+comedogenic+moisturizer"},
         {"name": "Flipkart", "url": "https://www.flipkart.com/search?q=non%20comedogenic%20moisturizer"},
         {"name": "PharmEasy", "url": "https://pharmeasy.in/search/all?name=moisturizer%20non%20comedogenic"}
       ]
@@ -32,12 +40,16 @@
     {
       "id": "ceramide-cream",
       "name": "Ceramide Barrier Cream",
+      "category": "moisturizer",
+      "rank": 20,
+      "pick_badge": "Barrier repair",
+      "tags": ["ceramides", "dryness", "sensitive"],
       "conditions": ["eczema", "dryness", "sensitive"],
       "reason": "Ceramides can help reinforce the skin barrier and reduce dryness.",
       "image_path": "assets/products/ceramide-cream.png",
       "image_url": "https://via.placeholder.com/640x400.png?text=Ceramide+Cream",
       "buy_links": [
-        {"name": "Amazon", "url": "https://www.amazon.com/s?k=ceramide+cream"},
+        {"name": "Amazon", "url": "https://www.amazon.in/s?k=ceramide+cream+fragrance+free"},
         {"name": "Flipkart", "url": "https://www.flipkart.com/search?q=ceramide%20cream"},
         {"name": "PharmEasy", "url": "https://pharmeasy.in/search/all?name=ceramide%20cream"}
       ]
@@ -45,25 +57,67 @@
     {
       "id": "mineral-sunscreen",
       "name": "Mineral Sunscreen SPF 30+",
+      "category": "sunscreen",
+      "rank": 20,
+      "pick_badge": "Sensitive-friendly",
+      "tags": ["mineral", "sensitive"],
       "conditions": ["hyperpigmentation", "rosacea", "sensitive", "normal"],
       "reason": "Daily sunscreen helps prevent dark spots and protects sensitive skin.",
       "image_path": "assets/products/mineral-sunscreen.png",
       "image_url": "https://via.placeholder.com/640x400.png?text=Mineral+Sunscreen",
       "buy_links": [
-        {"name": "Amazon", "url": "https://www.amazon.com/s?k=mineral+sunscreen+spf+30"},
+        {"name": "Amazon", "url": "https://www.amazon.in/s?k=mineral+sunscreen+spf+50"},
         {"name": "Flipkart", "url": "https://www.flipkart.com/search?q=mineral%20sunscreen%20spf%2030"},
         {"name": "PharmEasy", "url": "https://pharmeasy.in/search/all?name=mineral%20sunscreen"}
       ]
     },
     {
+      "id": "gel-sunscreen-spf50",
+      "name": "Gel Sunscreen SPF 50 (Lightweight)",
+      "category": "sunscreen",
+      "rank": 30,
+      "pick_badge": "Best for oily skin",
+      "tags": ["lightweight", "oily_skin"],
+      "conditions": ["acne", "hyperpigmentation", "normal"],
+      "reason": "A light gel feel can be easier to wear daily and helps reduce shine for some people.",
+      "image_path": "assets/products/mineral-sunscreen.png",
+      "image_url": "https://via.placeholder.com/640x400.png?text=Gel+Sunscreen+SPF50",
+      "buy_links": [
+        {"name": "Amazon", "url": "https://www.amazon.in/s?k=gel+sunscreen+spf+50+for+oily+skin"},
+        {"name": "Flipkart", "url": "https://www.flipkart.com/search?q=gel%20sunscreen%20spf%2050"},
+        {"name": "PharmEasy", "url": "https://pharmeasy.in/search/all?name=gel%20sunscreen%20spf%2050"}
+      ]
+    },
+    {
+      "id": "tinted-sunscreen-spf50",
+      "name": "Tinted Sunscreen SPF 50 (Cosmetic finish)",
+      "category": "sunscreen",
+      "rank": 40,
+      "pick_badge": "Best for tone-even look",
+      "tags": ["tinted", "hyperpigmentation"],
+      "conditions": ["hyperpigmentation", "rosacea", "normal"],
+      "reason": "Tinted formulas can help even appearance and encourage daily sunscreen use for some people.",
+      "image_path": "assets/products/mineral-sunscreen.png",
+      "image_url": "https://via.placeholder.com/640x400.png?text=Tinted+Sunscreen+SPF50",
+      "buy_links": [
+        {"name": "Amazon", "url": "https://www.amazon.in/s?k=tinted+sunscreen+spf+50"},
+        {"name": "Flipkart", "url": "https://www.flipkart.com/search?q=tinted%20sunscreen%20spf%2050"},
+        {"name": "PharmEasy", "url": "https://pharmeasy.in/search/all?name=tinted%20sunscreen%20spf%2050"}
+      ]
+    },
+    {
       "id": "azelaic-acid",
       "name": "Azelaic Acid Serum (10%)",
+      "category": "treatment",
+      "rank": 20,
+      "pick_badge": "Redness + marks",
+      "tags": ["azelaic_acid"],
       "conditions": ["acne", "rosacea", "hyperpigmentation"],
       "reason": "Often used to calm redness and help with uneven tone and blemishes.",
       "image_path": "assets/products/azelaic-acid.png",
       "image_url": "https://via.placeholder.com/640x400.png?text=Azelaic+Acid",
       "buy_links": [
-        {"name": "Amazon", "url": "https://www.amazon.com/s?k=azelaic+acid+10+percent"},
+        {"name": "Amazon", "url": "https://www.amazon.in/s?k=azelaic+acid+10+percent"},
         {"name": "Flipkart", "url": "https://www.flipkart.com/search?q=azelaic%20acid%2010%25"},
         {"name": "PharmEasy", "url": "https://pharmeasy.in/search/all?name=azelaic%20acid%2010"}
       ]
@@ -71,12 +125,16 @@
     {
       "id": "salicylic-acid-wash",
       "name": "Salicylic Acid Cleanser (BHA)",
+      "category": "cleanser",
+      "rank": 30,
+      "pick_badge": "Acne support",
+      "tags": ["salicylic_acid"],
       "conditions": ["acne"],
       "reason": "Can help unclog pores; start slowly to avoid irritation.",
       "image_path": "assets/products/salicylic-acid-wash.png",
       "image_url": "https://via.placeholder.com/640x400.png?text=Salicylic+Acid+Cleanser",
       "buy_links": [
-        {"name": "Amazon", "url": "https://www.amazon.com/s?k=salicylic+acid+cleanser"},
+        {"name": "Amazon", "url": "https://www.amazon.in/s?k=salicylic+acid+cleanser+face+wash"},
         {"name": "Flipkart", "url": "https://www.flipkart.com/search?q=salicylic%20acid%20face%20wash"},
         {"name": "PharmEasy", "url": "https://pharmeasy.in/search/all?name=salicylic%20acid%20cleanser"}
       ]
@@ -84,12 +142,16 @@
     {
       "id": "anti-dandruff-shampoo",
       "name": "Anti-Dandruff Shampoo (For Scalp/Seb Derm)",
+      "category": "treatment",
+      "rank": 70,
+      "pick_badge": "Scalp care",
+      "tags": ["scalp", "seb_derm"],
       "conditions": ["seborrheic_dermatitis"],
       "reason": "For scalp flaking/itch; use as directed and patch test first.",
       "image_path": "assets/products/anti-dandruff-shampoo.png",
       "image_url": "https://via.placeholder.com/640x400.png?text=Anti-Dandruff+Shampoo",
       "buy_links": [
-        {"name": "Amazon", "url": "https://www.amazon.com/s?k=anti+dandruff+shampoo"},
+        {"name": "Amazon", "url": "https://www.amazon.in/s?k=anti+dandruff+shampoo+ketoconazole"},
         {"name": "Flipkart", "url": "https://www.flipkart.com/search?q=anti%20dandruff%20shampoo"},
         {"name": "PharmEasy", "url": "https://pharmeasy.in/search/all?name=anti%20dandruff%20shampoo"}
       ]
@@ -97,12 +159,16 @@
     {
       "id": "psoriasis-cream",
       "name": "Thick Moisturizer / Ointment (Barrier Support)",
+      "category": "moisturizer",
+      "rank": 60,
+      "pick_badge": "Very dry skin",
+      "tags": ["ointment", "dryness"],
       "conditions": ["psoriasis", "eczema", "dryness", "sensitive"],
       "reason": "Moisturising regularly can reduce scaling and irritation; patch test and stop if stinging occurs.",
       "image_path": "assets/products/psoriasis-cream.png",
       "image_url": "https://via.placeholder.com/640x400.png?text=Barrier+Ointment",
       "buy_links": [
-        {"name": "Amazon", "url": "https://www.amazon.com/s?k=petrolatum+ointment+fragrance+free"},
+        {"name": "Amazon", "url": "https://www.amazon.in/s?k=petrolatum+ointment+fragrance+free"},
         {"name": "Flipkart", "url": "https://www.flipkart.com/search?q=petrolatum%20ointment%20fragrance%20free"},
         {"name": "PharmEasy", "url": "https://pharmeasy.in/search/all?name=ointment%20fragrance%20free"}
       ]
@@ -110,12 +176,16 @@
     {
       "id": "psoriasis-scalp-shampoo",
       "name": "Scalp Care Shampoo (For Flakes/Scaling)",
+      "category": "treatment",
+      "rank": 80,
+      "pick_badge": "Scalp support",
+      "tags": ["scalp", "salicylic_acid"],
       "conditions": ["psoriasis", "seborrheic_dermatitis"],
       "reason": "Some shampoos are used for flaky/scaly scalp. Follow directions carefully and avoid eyes.",
       "image_path": "assets/products/psoriasis-scalp-shampoo.png",
       "image_url": "https://via.placeholder.com/640x400.png?text=Scalp+Care+Shampoo",
       "buy_links": [
-        {"name": "Amazon", "url": "https://www.amazon.com/s?k=salicylic+acid+scalp+shampoo"},
+        {"name": "Amazon", "url": "https://www.amazon.in/s?k=salicylic+acid+scalp+shampoo"},
         {"name": "Flipkart", "url": "https://www.flipkart.com/search?q=salicylic%20acid%20scalp%20shampoo"},
         {"name": "PharmEasy", "url": "https://pharmeasy.in/search/all?name=scalp%20shampoo%20salicylic%20acid"}
       ]

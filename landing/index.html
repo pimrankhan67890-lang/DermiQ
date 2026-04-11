@@ -336,6 +336,37 @@ nav{
 .track-this.tracked{background:var(--teal-dim);border-color:var(--teal-b);color:var(--teal)}
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   PRODUCT EXPLORER + CART + ROUTINE PLAN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.explore-wrap{display:none;margin-bottom:14px;animation:fadeUp .5s .1s ease both}
+.explore-card{padding:24px;border-radius:var(--rl);background:var(--glass);border:1px solid var(--border);backdrop-filter:blur(16px)}
+.chip-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.chip{padding:7px 12px;border-radius:999px;border:1px solid var(--border2);background:transparent;color:rgba(255,255,255,.86);font-size:.78rem;cursor:pointer;transition:all .15s}
+.chip:hover{background:rgba(255,255,255,.05)}
+.chip.on{border-color:var(--teal-b);box-shadow:0 0 0 1px rgba(0,240,204,.22) inset}
+.explore-grid{margin-top:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+.prod-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.btn-mini{padding:7px 12px;border-radius:999px;border:1px solid var(--border2);background:rgba(255,255,255,.03);color:var(--w);font-size:.78rem;cursor:pointer;transition:all .15s}
+.btn-mini:hover{background:rgba(255,255,255,.06)}
+.btn-mini.pri{border-color:var(--teal-b);color:var(--teal)}
+.cart-wrap{display:none;margin-bottom:14px;animation:fadeUp .5s .1s ease both}
+.cart-card{padding:18px 18px;border-radius:18px;background:rgba(255,255,255,.02);border:1px solid var(--border);backdrop-filter:blur(14px)}
+.cart-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:12px}
+.cart-item{font-size:.82rem;color:rgba(255,255,255,.9);line-height:1.4}
+.cart-sub{font-size:.72rem;color:rgba(255,255,255,.6);margin-top:3px}
+.cart-x{border:1px solid var(--border2);background:transparent;color:rgba(255,255,255,.8);border-radius:10px;padding:4px 8px;cursor:pointer}
+.prefs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+@media(max-width:560px){.prefs{grid-template-columns:1fr}}
+.pref{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--border);border-radius:14px;padding:10px 12px;background:rgba(255,255,255,.015)}
+.pref label{font-size:.78rem;color:rgba(255,255,255,.86)}
+.routine-wrap{display:none;margin-bottom:14px;animation:fadeUp .5s .1s ease both}
+.routine-card{padding:24px;border-radius:var(--rl);background:var(--glass);border:1px solid var(--border);backdrop-filter:blur(16px)}
+.routine-grid{margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.routine-box{padding:14px 16px;border-radius:16px;background:rgba(255,255,255,.02);border:1px solid var(--border)}
+.routine-h{font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.65);margin-bottom:10px}
+.routine-li{font-size:.8rem;color:rgba(255,255,255,.86);line-height:1.6;margin-bottom:6px}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    FEEDBACK + TRACKING CTA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 #feedback-wrap{display:none;padding:18px 22px;border-radius:var(--r);background:var(--glass);border:1px solid var(--border);margin-bottom:14px;animation:fadeUp .5s .15s ease}
@@ -558,6 +589,62 @@ footer{position:relative;z-index:1;padding:44px clamp(20px,5%,80px) 28px;border-
           </div>
         </div>
         <div class="prods-grid" id="prods-grid"></div>
+      </div>
+    </div>
+
+    <!-- PRODUCT EXPLORER -->
+    <div id="explore-wrap" class="explore-wrap">
+      <div class="explore-card">
+        <div class="products-hdr" style="margin-bottom:8px">
+          <div>
+            <div class="products-title">Product Explorer</div>
+            <div class="products-note">Pick a category to see top recommended options. Add to your DermIQ cart to generate a routine plan (no checkout here).</div>
+          </div>
+        </div>
+        <div class="chip-row" id="explore-cats">
+          <button class="chip on" data-cat="sunscreen" type="button">Sunscreens</button>
+          <button class="chip" data-cat="cleanser" type="button">Cleansers</button>
+          <button class="chip" data-cat="moisturizer" type="button">Moisturizers</button>
+          <button class="chip" data-cat="treatment" type="button">Treatments</button>
+        </div>
+        <div class="explore-grid" id="explore-grid"></div>
+      </div>
+    </div>
+
+    <!-- CART + ROUTINE PLAN -->
+    <div id="cart-wrap" class="cart-wrap">
+      <div class="cart-card">
+        <div class="products-title" style="margin:0">DermIQ Cart</div>
+        <div class="products-note" style="margin-top:6px">Shortlist products you want to try. We’ll build a safe routine plan (educational only).</div>
+        <div id="cart-items"></div>
+        <div class="prefs">
+          <div class="pref"><label>Sensitive skin</label><input type="checkbox" id="pref-sensitive"/></div>
+          <div class="pref"><label>Fragrance-free preference</label><input type="checkbox" id="pref-fragrance" checked/></div>
+          <div class="pref"><label>Pregnancy-safe preference</label><input type="checkbox" id="pref-pregnancy"/></div>
+          <div class="pref"><label>Show routine as AM/PM</label><input type="checkbox" id="pref-ampm" checked/></div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+          <button class="btn-ghost" id="btn-generate-plan" type="button">Generate routine plan →</button>
+          <button class="btn-ghost" id="btn-clear-cart" type="button">Clear cart</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="routine-wrap" class="routine-wrap">
+      <div class="routine-card">
+        <div class="products-hdr" style="margin-bottom:8px">
+          <div>
+            <div class="products-title">Your routine plan</div>
+            <div class="products-note" id="routine-note"></div>
+          </div>
+        </div>
+        <div class="routine-grid">
+          <div class="routine-box"><div class="routine-h">AM</div><div id="routine-am"></div></div>
+          <div class="routine-box"><div class="routine-h">PM</div><div id="routine-pm"></div></div>
+          <div class="routine-box"><div class="routine-h">Weekly</div><div id="routine-weekly"></div></div>
+          <div class="routine-box"><div class="routine-h">Avoid</div><div id="routine-avoid"></div></div>
+        </div>
+        <div class="safety-note" style="margin-top:14px" id="routine-safety"></div>
       </div>
     </div>
 
