@@ -359,6 +359,7 @@ nav{
 @media(max-width:560px){.prefs{grid-template-columns:1fr}}
 .pref{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--border);border-radius:14px;padding:10px 12px;background:rgba(255,255,255,.015)}
 .pref label{font-size:.78rem;color:rgba(255,255,255,.86)}
+.pref select,.pref input[type="text"]{flex:1;min-width:0;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid var(--border2);color:var(--w);font-family:var(--font-body)}
 .routine-wrap{display:none;margin-bottom:14px;animation:fadeUp .5s .1s ease both}
 .routine-card{padding:24px;border-radius:var(--rl);background:var(--glass);border:1px solid var(--border);backdrop-filter:blur(16px)}
 .routine-grid{margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
@@ -622,6 +623,8 @@ footer{position:relative;z-index:1;padding:44px clamp(20px,5%,80px) 28px;border-
           <div class="pref"><label>Fragrance-free preference</label><input type="checkbox" id="pref-fragrance" checked/></div>
           <div class="pref"><label>Pregnancy-safe preference</label><input type="checkbox" id="pref-pregnancy"/></div>
           <div class="pref"><label>Show routine as AM/PM</label><input type="checkbox" id="pref-ampm" checked/></div>
+          <div class="pref"><label>Preferred store</label><select id="pref-store"><option value="">Best match</option><option value="Amazon">Amazon</option><option value="Flipkart">Flipkart</option><option value="PharmEasy">PharmEasy</option></select></div>
+          <div class="pref"><label>Notes</label><input type="text" id="pref-note" placeholder="Example: oily skin, budget under 700"/></div>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
           <button class="btn-ghost" id="btn-generate-plan" type="button">Generate routine plan →</button>
@@ -643,6 +646,10 @@ footer{position:relative;z-index:1;padding:44px clamp(20px,5%,80px) 28px;border-
           <div class="routine-box"><div class="routine-h">PM</div><div id="routine-pm"></div></div>
           <div class="routine-box"><div class="routine-h">Weekly</div><div id="routine-weekly"></div></div>
           <div class="routine-box"><div class="routine-h">Avoid</div><div id="routine-avoid"></div></div>
+        </div>
+        <div class="routine-grid" style="margin-top:14px">
+          <div class="routine-box"><div class="routine-h">Timeline</div><div id="routine-timeline"></div></div>
+          <div class="routine-box"><div class="routine-h">Notes</div><div id="routine-notes"></div></div>
         </div>
         <div class="safety-note" style="margin-top:14px" id="routine-safety"></div>
       </div>

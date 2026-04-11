@@ -43,6 +43,8 @@ def build_routine_plan(
     sensitive = bool(prefs.get("sensitive_skin", False))
     fragrance_free = bool(prefs.get("fragrance_free", True))
     pregnancy_safe = bool(prefs.get("pregnancy_safe", False))
+    note = str(prefs.get("note", "")).strip()
+    preferred_store = str(prefs.get("preferred_store", "")).strip()
 
     cats = {str(p.get("category", "")).strip().lower() for p in (selected_products or []) if isinstance(p, dict)}
     has_cleanser = "cleanser" in cats
@@ -107,6 +109,11 @@ def build_routine_plan(
         notes.append("Pregnancy-safe preference enabled: avoid starting strong actives unless cleared by a clinician.")
         avoid.append("Avoid retinoids unless a clinician specifically approves.")
 
+    if preferred_store:
+        notes.append(f"Preferred store selected: {preferred_store}. Compare formula details before buying.")
+    if note:
+        notes.append(f"User note: {note}")
+
     timeline = "Retake a clear photo in 7 days and compare trend. Consult a clinician if worsening, painful, spreading, or if you’re worried."
     return RoutinePlan(
         am=_uniq(am),
@@ -116,4 +123,3 @@ def build_routine_plan(
         timeline=timeline,
         notes=_uniq(notes),
     )
-

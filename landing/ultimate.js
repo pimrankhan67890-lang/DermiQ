@@ -45,6 +45,7 @@
   let billingProToken = "";
   const CART_KEY = "dermiq_cart_v1";
   let cartIds = [];
+  let cartPrefs = { preferred_store: "", note: "" };
   let exploreCategory = "sunscreen";
   const catalogCache = new Map();
 
@@ -148,6 +149,26 @@
     } catch {}
   }
 
+  function loadCartPrefs() {
+    try {
+      cartPrefs = {
+        preferred_store: String(qs("pref-store")?.value || "").trim(),
+        note: String(qs("pref-note")?.value || "").trim(),
+      };
+    } catch {
+      cartPrefs = { preferred_store: "", note: "" };
+    }
+  }
+
+  function applyCartPrefs(prefs) {
+    const p = prefs && typeof prefs === "object" ? prefs : {};
+    const preferredStore = String(p.preferred_store || "").trim();
+    const note = String(p.note || "").trim();
+    if (qs("pref-store")) qs("pref-store").value = preferredStore;
+    if (qs("pref-note")) qs("pref-note").value = note;
+    cartPrefs = { preferred_store: preferredStore, note };
+  }
+
   async function logTrackerEvent(kind, payload) {
     const sid = await ensureSession();
     if (!sid) return;
@@ -161,7 +182,13 @@
   }
 
   async function logCartUpdate() {
-    await logTrackerEvent("cart_update", { product_ids: cartIds.slice(0, 30), scan_id: scanId || "" });
+    loadCartPrefs();
+    await logTrackerEvent("cart_update", {
+      product_ids: cartIds.slice(0, 30),
+      scan_id: scanId || "",
+      preferred_store: cartPrefs.preferred_store,
+      note: cartPrefs.note,
+    });
   }
 
   function renderCart(catalogProducts) {
@@ -290,7 +317,32 @@
   async function loadExplorer(category) {
     exploreCategory = String(category || "").trim().toLowerCase() || "sunscreen";
     const payload = await fetchCatalog(exploreCategory);
+    await logTrackerEvent("product_view", {
+      category: exploreCategory,
+      product_ids: (Array.isArray(payload?.products) ? payload.products : []).slice(0, 18).map((p) => String(p?.id || "")).filter(Boolean),
+      scan_id: scanId || "",
+    });
     renderExplorerList(exploreCategory, payload);
+  }
+
+  async function restoreCartFromServer() {
+    const sid = await ensureSession();
+    if (!sid) return;
+    try {
+      const r = await fetch(`/tracker/timeline?session_id=${encodeURIComponent(sid)}&limit=50`);
+      if (!r.ok) return;
+      const j = await r.json().catch(() => null);
+      const events = Array.isArray(j?.events) ? j.events : [];
+      const found = events.find((e) => String(e?.kind || "") === "cart_update" && e?.payload && typeof e.payload === "object");
+      if (!found) return;
+      const payload = found.payload || {};
+      const ids = Array.isArray(payload.product_ids) ? payload.product_ids.map((x) => String(x || "").trim()).filter(Boolean) : [];
+      if (ids.length && !cartIds.length) {
+        cartIds = ids.slice(0, 30);
+        saveCart();
+      }
+      applyCartPrefs(payload);
+    } catch {}
   }
 
   async function generateRoutinePlan() {
@@ -303,6 +355,8 @@
       fragrance_free: !!qs("pref-fragrance")?.checked,
       pregnancy_safe: !!qs("pref-pregnancy")?.checked,
       ampm: !!qs("pref-ampm")?.checked,
+      preferred_store: String(qs("pref-store")?.value || "").trim(),
+      note: String(qs("pref-note")?.value || "").trim(),
     };
 
     const payload = {
@@ -342,6 +396,8 @@
     renderList("routine-pm", plan.pm);
     renderList("routine-weekly", plan.weekly);
     renderList("routine-avoid", plan.avoid);
+    renderList("routine-notes", plan.notes);
+    renderList("routine-timeline", plan.timeline ? [plan.timeline] : []);
 
     await logTrackerEvent("routine_generated_ui", { product_ids: cartIds.slice(0, 30), scan_id: scanId || "" });
     rw?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -814,6 +870,8 @@
 
   // Explorer + cart init (minimal: hidden until after first scan)
   loadCart();
+  applyCartPrefs(cartPrefs);
+  restoreCartFromServer().catch(() => {});
   const catBox = qs("explore-cats");
   catBox?.querySelectorAll(".chip").forEach((b) =>
     b.addEventListener("click", () => {
@@ -831,11 +889,20 @@
   });
   qs("btn-clear-cart")?.addEventListener("click", () => {
     cartIds = [];
+    if (qs("pref-store")) qs("pref-store").value = "";
+    if (qs("pref-note")) qs("pref-note").value = "";
+    cartPrefs = { preferred_store: "", note: "" };
     saveCart();
     renderCart([]);
     logCartUpdate().catch(() => {});
     const rw = qs("routine-wrap");
     if (rw) rw.style.display = "none";
+  });
+  qs("pref-store")?.addEventListener("change", () => {
+    logCartUpdate().catch(() => {});
+  });
+  qs("pref-note")?.addEventListener("change", () => {
+    logCartUpdate().catch(() => {});
   });
 
   /* Scroll reveals */
