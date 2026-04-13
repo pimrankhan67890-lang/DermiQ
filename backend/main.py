@@ -357,6 +357,11 @@ async def journey_summary(request: Request) -> Dict[str, Any]:
         "consult_url": _consult_url,
         "consult_label": _consult_label,
     }
+    case_state = data.get("case_state") if isinstance(data.get("case_state"), dict) else {}
+    if case_state:
+        case_state["consult_url"] = _consult_url
+        case_state["consult_label"] = _consult_label
+        data["case_state"] = case_state
     return data
 
 
@@ -496,7 +501,16 @@ async def routine_plan(request: Request, payload: Dict[str, Any]) -> Dict[str, A
         if pid and pid in wanted:
             selected_products.append(public_product(p))
 
-    plan = build_routine_plan(top_label=top_label, selected_products=selected_products, prefs=prefs)
+    case_state: Dict[str, Any] = {}
+    user_id = get_user_id_for_session(sid) if sid else ""
+    if user_id:
+        try:
+            journey = get_journey_summary(user_id)
+            case_state = journey.get("case_state", {}) if isinstance(journey, dict) else {}
+        except Exception:
+            case_state = {}
+
+    plan = build_routine_plan(top_label=top_label, selected_products=selected_products, prefs=prefs, case_state=case_state)
 
     if sid:
         try:
@@ -518,6 +532,7 @@ async def routine_plan(request: Request, payload: Dict[str, Any]) -> Dict[str, A
         "top_label": top_label,
         "selected_products": selected_products,
         "plan": plan.to_dict(),
+        "case_state": case_state,
         "safety": (
             "Educational only — not a medical diagnosis. Stop products if irritation occurs. "
             "Seek a licensed clinician promptly for severe pain, swelling, fever, spreading rash, bleeding, "
@@ -699,6 +714,7 @@ async def predict_endpoint(request: Request, file: UploadFile = File(...)) -> Di
         "scan_id": scan_id,
         "top_label": top_label,
         "top_prob": float(top_prob),
+        "confidence_mode": ("uncertain" if top_label == "uncertain" else ("watch" if float(top_prob) < 0.7 else "confident")),
         "top3": [{"label": lbl, "prob": float(prob)} for lbl, prob in top3],
         "advice": (
             [

@@ -387,6 +387,8 @@ nav{
 .routine-focus-title{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:8px}
 .routine-focus-head{font-family:var(--font-display);font-size:1.08rem;font-weight:700;line-height:1.35}
 .routine-focus-copy{margin-top:8px;font-size:.82rem;line-height:1.65;color:rgba(255,255,255,.76)}
+.routine-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.routine-meta-pill{padding:8px 12px;border-radius:999px;border:1px solid var(--border2);background:rgba(255,255,255,.03);font-size:.76rem;color:var(--w2)}
 .save-progress{display:none;margin-top:14px;padding:18px;border-radius:18px;background:rgba(255,255,255,.02);border:1px solid var(--border)}
 .save-progress-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
 .save-progress input{flex:1;min-width:180px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--border2);color:var(--w);font-family:var(--font-body)}
@@ -556,7 +558,7 @@ footer{position:relative;z-index:1;padding:44px clamp(20px,5%,80px) 28px;border-
       Your skin.<br>
       <span class="h1-line2"><span class="h1-teal">Understood.</span> <span class="h1-coral">Safer.</span></span>
     </h1>
-    <p class="hero-sub">Upload one photo. Get AI-assisted skin guidance, a simpler routine, matched product options, and clearer next steps for tracking whether it helps.</p>
+    <p class="hero-sub">Upload one photo. DermIQ helps you understand what may be happening, start a safer protocol, track whether it helps, and know when it is time to escalate.</p>
     <div class="hero-actions">
       <a href="#scan" class="btn-cta">📸 &nbsp;Analyse my skin now</a>
       <a href="#how" class="btn-sec">How it works →</a>
@@ -692,6 +694,10 @@ footer{position:relative;z-index:1;padding:44px clamp(20px,5%,80px) 28px;border-
           <div class="routine-focus-title">Today’s focus</div>
           <div class="routine-focus-head" id="routine-headline"></div>
           <div class="routine-focus-copy" id="routine-focus-copy"></div>
+          <div class="routine-meta">
+            <div class="routine-meta-pill" id="routine-stage">Protocol stage: starting</div>
+            <div class="routine-meta-pill" id="routine-confidence">Confidence mode: uncertain</div>
+          </div>
         </div>
         <div class="routine-grid">
           <div class="routine-box"><div class="routine-h">AM</div><div id="routine-am"></div></div>

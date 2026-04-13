@@ -527,6 +527,109 @@ def _json_blob(value: Any) -> str:
     return json.dumps(value if value is not None else {}, ensure_ascii=False)
 
 
+def _avg(values: List[float]) -> float:
+    nums = [float(v) for v in values if v is not None]
+    return (sum(nums) / len(nums)) if nums else 0.0
+
+
+def _confidence_mode(top_label: str, top_prob: float, escalation_level: str = "none") -> str:
+    label = str(top_label or "").strip().lower()
+    prob = float(top_prob or 0.0)
+    esc = str(escalation_level or "none").strip().lower()
+    if esc == "urgent":
+        return "escalate"
+    if label == "uncertain" or prob < 0.45:
+        return "uncertain"
+    if esc == "caution" or prob < 0.7:
+        return "watch"
+    return "confident"
+
+
+def _trend_from_followups(follow_ups: List[Dict[str, Any]]) -> str:
+    if len(follow_ups) < 2:
+        return "unknown"
+    recent = [float(item.get("severity", 0.0)) for item in follow_ups[:3]]
+    older = [float(item.get("severity", 0.0)) for item in follow_ups[3:6]]
+    if not older:
+        delta = recent[0] - recent[-1] if len(recent) >= 2 else 0.0
+        if delta >= 1.0:
+            return "improving"
+        if delta <= -1.0:
+            return "worsening"
+        return "steady"
+    recent_avg = _avg(recent)
+    older_avg = _avg(older)
+    if recent_avg <= older_avg - 0.75:
+        return "improving"
+    if recent_avg >= older_avg + 0.75:
+        return "worsening"
+    return "steady"
+
+
+def derive_case_state(
+    *,
+    scans: List[Dict[str, Any]],
+    follow_ups: List[Dict[str, Any]],
+    products: List[Dict[str, Any]],
+    escalation: Dict[str, Any],
+) -> Dict[str, Any]:
+    latest_scan = scans[0] if scans else {}
+    top_label = str(latest_scan.get("top_label") or "").strip()
+    top_prob = float(latest_scan.get("top_prob") or 0.0)
+    escalation_level = str(escalation.get("level") or "none").strip().lower()
+    confidence_mode = _confidence_mode(top_label, top_prob, escalation_level)
+
+    follow_flags: List[str] = []
+    for item in follow_ups[:4]:
+        flags = item.get("flags") if isinstance(item.get("flags"), dict) else {}
+        for key, label in [
+            ("fever", "Fever"),
+            ("spreading_fast", "Spreading fast"),
+            ("bleeding", "Bleeding"),
+            ("eye_involvement", "Eye involvement"),
+            ("severe_pain", "Severe pain"),
+        ]:
+            if flags.get(key):
+                follow_flags.append(label)
+    irritation_flags = [str(item.get("name") or item.get("product_id") or "Product") for item in products if str(item.get("status") or "") == "irritated"][:4]
+    neutral_count = sum(1 for item in products if str(item.get("status") or "") == "neutral")
+    inconsistent_count = sum(1 for item in products if str(item.get("status") or "") == "inconsistent")
+    active_count = sum(1 for item in products if str(item.get("status") or "") in {"active", "helped"})
+    helped_count = sum(1 for item in products if str(item.get("status") or "") == "helped")
+
+    latest_severity = float(follow_ups[0].get("severity", 0.0)) if follow_ups else 0.0
+    trend = _trend_from_followups(follow_ups)
+
+    return {
+        "focus_condition": top_label,
+        "confidence_mode": confidence_mode,
+        "symptom_severity": latest_severity,
+        "response_trend": trend,
+        "escalation_status": escalation_level or "none",
+        "consult_recommended": escalation_level in {"caution", "urgent"},
+        "irritation_flags": irritation_flags,
+        "red_flag_signals": _uniq_preserve(follow_flags),
+        "products_in_use": active_count,
+        "helped_products": helped_count,
+        "neutral_products": neutral_count,
+        "inconsistent_products": inconsistent_count,
+        "last_check_in_at": int(follow_ups[0].get("created_at") or 0) if follow_ups else 0,
+        "last_scan_at": int(latest_scan.get("created_at") or 0) if latest_scan else 0,
+    }
+
+
+def _uniq_preserve(items: List[str]) -> List[str]:
+    out: List[str] = []
+    seen = set()
+    for item in items:
+        key = str(item or "").strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append(key)
+    return out
+
+
 def upsert_profile(
     user_id: str,
     *,
@@ -640,7 +743,7 @@ def save_scan_record(
     init_db()
     c = _conn()
     try:
-        confidence_level = "low" if float(top_prob) < 0.45 else ("medium" if float(top_prob) < 0.7 else "high")
+        confidence_level = _confidence_mode(str(top_label or "").strip(), float(top_prob or 0.0))
         c.execute(
             """
             INSERT OR REPLACE INTO scans(
@@ -768,6 +871,9 @@ def update_tracked_product_status(user_id: str, product_id: str, status: str, no
     product_id = str(product_id or "").strip()
     if not user_id or not product_id:
         return {}
+    status = str(status or "planned").strip().lower()
+    if status not in {"planned", "active", "helped", "neutral", "irritated", "inconsistent", "stopped"}:
+        status = "planned"
     init_db()
     c = _conn()
     try:
@@ -777,7 +883,7 @@ def update_tracked_product_status(user_id: str, product_id: str, status: str, no
             SET status=?, notes=CASE WHEN ? <> '' THEN ? ELSE notes END, updated_at=?
             WHERE user_id=? AND product_id=?
             """,
-            (str(status or "planned").strip(), str(notes or "").strip(), str(notes or "").strip(), _now(), user_id, product_id),
+            (status, str(notes or "").strip(), str(notes or "").strip(), _now(), user_id, product_id),
         )
         c.commit()
     finally:
@@ -1005,6 +1111,12 @@ def assess_user_escalation(user_id: str) -> Dict[str, Any]:
                 "reason": "Your follow-ups do not show clear improvement yet.",
                 "next_step": "Keep the routine simple and consider a clinician if this continues another week.",
             }
+        if len(recent) >= 2 and recent[0] >= recent[-1] + 2:
+            return {
+                "level": "caution",
+                "reason": "Symptoms look worse than your earlier follow-ups.",
+                "next_step": "Stop adding new products and consider a clinician if this trend continues.",
+            }
 
     low_conf = 0
     for scan in scans:
@@ -1025,6 +1137,14 @@ def assess_user_escalation(user_id: str) -> Dict[str, Any]:
             "next_step": "Stop the irritating product and keep the routine gentle.",
         }
 
+    inconsistent_count = sum(1 for item in products if str(item.get("status") or "") == "inconsistent")
+    if inconsistent_count >= 2:
+        return {
+            "level": "caution",
+            "reason": "Your product use looks inconsistent, so DermIQ cannot tell what is helping yet.",
+            "next_step": "Keep the routine simple and use one new product at a time for 1 week.",
+        }
+
     return {"level": "none", "reason": "", "next_step": "Keep tracking weekly so DermIQ can spot changes early."}
 
 
@@ -1038,18 +1158,28 @@ def get_journey_summary(user_id: str) -> Dict[str, Any]:
     routine = get_latest_routine_plan(user_id)
     follow_ups = list_follow_ups(user_id, limit=8)
     escalation = assess_user_escalation(user_id)
+    case_state = derive_case_state(scans=scans, follow_ups=follow_ups, products=products, escalation=escalation)
 
     current_condition = scans[0]["top_label"] if scans else ""
+    trend = str(case_state.get("response_trend") or "unknown")
     stats = {
         "total_scans": len(scans),
         "tracked_products": len(products),
         "active_products": sum(1 for item in products if str(item.get("status") or "") in {"active", "helped"}),
         "follow_ups": len(follow_ups),
+        "helped_products": sum(1 for item in products if str(item.get("status") or "") == "helped"),
+        "irritated_products": sum(1 for item in products if str(item.get("status") or "") == "irritated"),
     }
     return {
         "profile": profile,
         "stats": stats,
         "current_condition": current_condition,
+        "case_state": case_state,
+        "progress_signal": {
+            "trend": trend,
+            "latest_severity": float(case_state.get("symptom_severity") or 0.0),
+            "confidence_mode": str(case_state.get("confidence_mode") or "uncertain"),
+        },
         "recent_scans": scans,
         "products": products,
         "routine": routine,

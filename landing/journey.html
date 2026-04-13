@@ -39,6 +39,11 @@ nav{position:sticky;top:0;z-index:40;height:64px;padding:0 clamp(18px,4%,56px);d
 .stat{padding:16px;border-radius:18px;background:rgba(255,255,255,.02);border:1px solid var(--border)}
 .stat-k{font-size:.72rem;color:var(--w3);margin-bottom:5px}
 .stat-v{font-family:var(--font-display);font-size:1.35rem;font-weight:700}
+.signal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:16px}
+.signal-card{padding:16px;border-radius:18px;background:rgba(255,255,255,.02);border:1px solid var(--border)}
+.signal-label{font-size:.72rem;color:var(--w3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.signal-value{font-family:var(--font-display);font-size:1.05rem;font-weight:700}
+.signal-copy{font-size:.8rem;color:var(--w2);line-height:1.6;margin-top:6px}
 .section{margin-top:16px;display:grid;gap:12px}
 .item,.row{padding:16px;border-radius:18px;background:rgba(255,255,255,.02);border:1px solid var(--border)}
 .item-top,.row-top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
@@ -87,6 +92,28 @@ nav{position:sticky;top:0;z-index:40;height:64px;padding:0 clamp(18px,4%,56px);d
           <div class="stat"><div class="stat-k">Tracked products</div><div class="stat-v" id="journey-stat-products">0</div></div>
           <div class="stat"><div class="stat-k">Active products</div><div class="stat-v" id="journey-stat-active">0</div></div>
           <div class="stat"><div class="stat-k">Weekly check-ins</div><div class="stat-v" id="journey-stat-followups">0</div></div>
+        </div>
+        <div class="signal-grid">
+          <div class="signal-card">
+            <div class="signal-label">Current focus</div>
+            <div class="signal-value" id="case-focus">Unknown</div>
+            <div class="signal-copy" id="case-focus-copy">DermIQ updates this from your latest saved scan.</div>
+          </div>
+          <div class="signal-card">
+            <div class="signal-label">Confidence mode</div>
+            <div class="signal-value" id="case-confidence">Uncertain</div>
+            <div class="signal-copy" id="case-confidence-copy">Confident, watch, uncertain, or escalate.</div>
+          </div>
+          <div class="signal-card">
+            <div class="signal-label">Response trend</div>
+            <div class="signal-value" id="case-trend">Unknown</div>
+            <div class="signal-copy" id="case-trend-copy">Weekly check-ins turn this into improving, steady, or worsening.</div>
+          </div>
+          <div class="signal-card">
+            <div class="signal-label">Current severity</div>
+            <div class="signal-value" id="case-severity">0/10</div>
+            <div class="signal-copy" id="case-severity-copy">Keep this updated weekly so the protocol adapts safely.</div>
+          </div>
         </div>
       </div>
       <div class="card" style="margin-top:16px">

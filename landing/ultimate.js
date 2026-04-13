@@ -530,6 +530,10 @@
     if (headline) headline.textContent = String(plan.headline || "Keep the routine simple and consistent.");
     const focus = qs("routine-focus-copy");
     if (focus) focus.textContent = String(plan.today_focus || "Introduce products one at a time and track how your skin responds.");
+    const stage = qs("routine-stage");
+    if (stage) stage.textContent = `Protocol stage: ${String(plan.protocol_stage || "starting").replaceAll("_", " ")}`;
+    const confidence = qs("routine-confidence");
+    if (confidence) confidence.textContent = `Confidence mode: ${String(plan.confidence_mode || "uncertain").replaceAll("_", " ")}`;
     const safety = qs("routine-safety");
     if (safety) safety.textContent = "⚠️ " + String(j?.safety || "");
 
@@ -853,8 +857,9 @@
 
     const sevEl = qs("r-sev");
     if (sevEl) {
-      sevEl.textContent = "educational";
-      sevEl.className = "sev-pill sp-mild";
+      const mode = String(d?.confidence_mode || "uncertain");
+      sevEl.textContent = mode;
+      sevEl.className = `sev-pill ${mode === "confident" ? "sp-mild" : mode === "watch" ? "sp-mod" : "sp-sev"}`;
     }
 
     const circ = 226.2;
