@@ -48,6 +48,9 @@
   let exploreCategory = "sunscreen";
   const catalogCache = new Map();
   let matchedProducts = [];
+  let cameraStream = null;
+  let lastCapturedBlob = null;
+  const selectedSymptoms = new Set();
 
   function loadSessionId() {
     try {
@@ -107,6 +110,24 @@
     const n = Number(prob);
     if (!Number.isFinite(n)) return 0;
     return Math.max(0, Math.min(100, Math.round(n * 100)));
+  }
+
+  function clinicalContext() {
+    return {
+      body_zone: String(qs("meta-body-zone")?.value || "").trim(),
+      duration_days: Number(qs("meta-duration")?.value || 0),
+      severity: Number(qs("meta-severity")?.value || 0),
+      triggers: String(qs("meta-triggers")?.value || "")
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean),
+      symptoms: Array.from(selectedSymptoms),
+    };
+  }
+
+  function setCameraGuidance(text) {
+    const el = qs("camera-guidance");
+    if (el) el.textContent = text;
   }
 
   function outHref(url, store, productId) {
@@ -702,6 +723,93 @@
     if (saveCard) saveCard.style.display = "none";
     const fb = qs("feedback-wrap");
     if (fb) fb.style.display = "none";
+    setCameraGuidance("Photo selected. Analyse now or retake with the live camera guide.");
+  }
+
+  async function startCamera() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      alert("Camera is not supported in this browser.");
+      return;
+    }
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+    const video = qs("camera-video");
+    const stage = qs("camera-stage");
+    const empty = qs("camera-empty");
+    if (video) {
+      video.srcObject = cameraStream;
+      await video.play().catch(() => {});
+    }
+    if (stage) {
+      stage.classList.add("active");
+      stage.classList.remove("captured");
+    }
+    if (empty) empty.style.display = "none";
+    setCameraGuidance("Live camera is running. Center one skin zone and move closer until it fills most of the frame.");
+  }
+
+  function stopCamera() {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((track) => track.stop());
+      cameraStream = null;
+    }
+  }
+
+  async function compareCapture(blob) {
+    if (!blob || !lastCapturedBlob) return;
+    try {
+      const fd = new FormData();
+      fd.append("current_file", blob, "current.jpg");
+      fd.append("baseline_file", lastCapturedBlob, "baseline.jpg");
+      const r = await fetch("/capture/compare", { method: "POST", body: fd });
+      if (!r.ok) return;
+      const j = await r.json().catch(() => null);
+      const box = qs("compare-box");
+      const copy = qs("compare-copy");
+      if (box && copy) {
+        copy.textContent = String(j?.comparison?.summary || "Comparison ready.");
+        box.style.display = "block";
+      }
+    } catch {}
+  }
+
+  async function captureFromCamera() {
+    const video = qs("camera-video");
+    const canvas = qs("camera-canvas");
+    const stage = qs("camera-stage");
+    if (!(video instanceof HTMLVideoElement) || !(canvas instanceof HTMLCanvasElement) || !video.videoWidth) {
+      alert("Start camera first.");
+      return;
+    }
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+    if (!blob) return;
+    currentFile = new File([blob], `camera-capture-${Date.now()}.jpg`, { type: "image/jpeg" });
+    if (stage) {
+      stage.classList.remove("active");
+      stage.classList.add("captured");
+    }
+    const btn = qs("scan-btn");
+    if (btn) btn.style.display = "inline-flex";
+    setCameraGuidance("Frame captured. Analyse now or retake if you want a steadier, closer crop.");
+    await compareCapture(blob);
+    lastCapturedBlob = blob;
+  }
+
+  function resetCameraCapture() {
+    currentFile = null;
+    const stage = qs("camera-stage");
+    const empty = qs("camera-empty");
+    if (stage) stage.classList.remove("captured");
+    if (!cameraStream && empty) empty.style.display = "block";
+    const btn = qs("scan-btn");
+    if (btn) btn.style.display = "none";
+    const wrap = qs("preview-wrap");
+    if (wrap) wrap.style.display = "none";
+    setCameraGuidance("Tip: keep one skin area centered and fill most of the frame.");
   }
 
   /* Drag & drop */
@@ -903,6 +1011,10 @@
 
     const actionsEl = qs("r-actions");
     if (actionsEl) actionsEl.innerHTML = "";
+    const reasoningCard = qs("reasoning-card");
+    const reasoningSummary = qs("reasoning-summary");
+    const reasoningFactors = qs("reasoning-factors");
+    if (reasoningCard) reasoningCard.style.display = "none";
 
     const esc = d?.escalation;
     if (actionsEl && esc && typeof esc === "object" && esc.should_consult) {
@@ -917,6 +1029,14 @@
           <a href="${href}" ${url ? 'target="_blank" rel="noreferrer noopener"' : ""} class="btn-ghost">${label} →</a>
         </div>
       </div>`;
+    }
+
+    if (reasoningCard && reasoningSummary && reasoningFactors) {
+      const reasoning = d?.reasoning || {};
+      const factors = Array.isArray(reasoning?.supporting_factors) ? reasoning.supporting_factors : [];
+      reasoningSummary.textContent = String(reasoning?.what_changed || "DermIQ combines the image with your current context and saved journey.");
+      reasoningFactors.textContent = factors.join(" • ");
+      reasoningCard.style.display = "block";
     }
 
     // Products
@@ -981,6 +1101,10 @@
     const safetyNote = document.querySelector(".safety-note");
     if (safetyNote && safetyLine) safetyNote.textContent = "⚠️ " + safetyLine;
 
+    if (d?.capture_guidance?.tips?.length) {
+      setCameraGuidance(String(d.capture_guidance.tips[0]));
+    }
+
     const results = qs("results");
     if (results) results.style.display = "block";
 
@@ -1009,11 +1133,17 @@
     startAnim();
     const fd = new FormData();
     fd.append("file", currentFile);
+    const context = clinicalContext();
+    fd.append("body_zone", String(context.body_zone || ""));
+    fd.append("duration_days", String(context.duration_days || 0));
+    fd.append("severity", String(context.severity || 0));
+    fd.append("symptoms", (context.symptoms || []).join(","));
+    fd.append("triggers", (context.triggers || []).join(","));
     try {
       const sid = await ensureSession();
       const headers = {};
       if (sid) headers["X-Session-Id"] = sid;
-      const r = await fetch("/predict", { method: "POST", body: fd, headers });
+      const r = await fetch("/capture/analyze", { method: "POST", body: fd, headers });
       if (r.status === 422) {
         const j = await r.json().catch(() => null);
         const d = j?.detail;
@@ -1056,6 +1186,9 @@
         top_prob: Number(d?.top_prob),
         top3: Array.isArray(d?.top3) ? d.top3 : [],
         model_backend: String(d?.model_backend || ""),
+        confidence_mode: String(d?.confidence_mode || ""),
+        reasoning: d?.reasoning || null,
+        capture_guidance: d?.capture_guidance || null,
       };
       showResults(d);
       document.dispatchEvent(new CustomEvent("dermiq:scan-result", { detail: { ...lastScan, usage: d?.usage || null } }));
@@ -1139,6 +1272,30 @@
   qs("btn-save-progress")?.addEventListener("click", () => {
     saveProgressIntent().catch(() => alert("Could not save your progress right now."));
   });
+  qs("btn-camera-start")?.addEventListener("click", () => {
+    startCamera().catch(() => alert("Could not start camera."));
+  });
+  qs("btn-camera-capture")?.addEventListener("click", () => {
+    captureFromCamera().catch(() => alert("Could not capture from camera."));
+  });
+  qs("btn-camera-reset")?.addEventListener("click", () => {
+    resetCameraCapture();
+  });
+  qs("symptom-chips")
+    ?.querySelectorAll("[data-symptom]")
+    .forEach((btn) =>
+      btn.addEventListener("click", () => {
+        const symptom = String(btn.getAttribute("data-symptom") || "").trim();
+        if (!symptom) return;
+        if (selectedSymptoms.has(symptom)) {
+          selectedSymptoms.delete(symptom);
+          btn.classList.remove("on");
+        } else {
+          selectedSymptoms.add(symptom);
+          btn.classList.add("on");
+        }
+      }),
+    );
   try {
     const savedName = String(window.localStorage.getItem("dermiq_save_name") || "");
     const savedEmail = String(window.localStorage.getItem("dermiq_save_email") || "");
@@ -1168,4 +1325,7 @@
     { threshold: 0.1 },
   );
   document.querySelectorAll(".reveal").forEach((el) => obs.observe(el));
+  window.addEventListener("beforeunload", () => {
+    stopCamera();
+  });
 })();

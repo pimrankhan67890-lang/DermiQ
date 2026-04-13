@@ -8,7 +8,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -24,6 +24,7 @@ from backend.billing import (
     stripe_create_checkout_url,
     stripe_handle_webhook,
 )
+from backend.capture import build_reasoning_summary, capture_guidance, compare_captures
 from backend.products import filter_products_for_top3, list_products, load_products, public_product
 from backend.outgoing import normalize_store, validate_outgoing_url
 from backend.routine import build_routine_plan
@@ -108,6 +109,142 @@ def _require_user(request: Request) -> Dict[str, Any]:
     if not profile:
         raise HTTPException(status_code=401, detail="Sign in required.")
     return profile
+
+
+def _parse_capture_context(payload: Dict[str, Any]) -> Dict[str, Any]:
+    symptoms = payload.get("symptoms", [])
+    triggers = payload.get("triggers", [])
+    if not isinstance(symptoms, list):
+        symptoms = []
+    if not isinstance(triggers, list):
+        triggers = []
+    return {
+        "duration_days": int(float(payload.get("duration_days", 0) or 0)),
+        "severity": float(payload.get("severity", 0) or 0),
+        "symptoms": [str(x).strip() for x in symptoms if str(x).strip()][:6],
+        "triggers": [str(x).strip() for x in triggers if str(x).strip()][:6],
+        "body_zone": str(payload.get("body_zone", "")).strip(),
+    }
+
+
+def _predict_image_response(
+    *,
+    pil_img: Image.Image,
+    scan_id: str,
+    sid: str,
+    plan: str,
+    capture_context: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    labels = load_labels()
+    result = predict_pil(pil_img, labels=labels)
+    top3 = result.top3()
+    top_label, top_prob = top3[0]
+    if _min_confidence > 0 and float(top_prob) < float(_min_confidence):
+        top_label = "uncertain"
+
+    products_payload = load_products()
+    top3_payload = [{"label": lbl, "prob": float(prob)} for lbl, prob in top3]
+    products = [public_product(p) for p in filter_products_for_top3(products_payload, top3_payload, limit=6)] if top_label != "uncertain" else []
+    affiliate_disclosure = str(products_payload.get("affiliate_disclosure", "")).strip()
+    amazon_required = str(os.getenv("DERMIQ_AMAZON_DISCLOSURE", "")).strip()
+    affiliate_line = " ".join([x for x in [affiliate_disclosure, amazon_required] if x])
+
+    confidence_mode = "uncertain" if top_label == "uncertain" else ("watch" if float(top_prob) < 0.7 else "confident")
+    case_state: Dict[str, Any] = {}
+    user_id = get_user_id_for_session(sid) if sid else ""
+    if user_id:
+        try:
+            journey = get_journey_summary(user_id)
+            case_state = journey.get("case_state", {}) if isinstance(journey, dict) else {}
+        except Exception:
+            case_state = {}
+
+    reasoning = build_reasoning_summary(
+        top_label=top_label,
+        confidence_mode=confidence_mode,
+        top_prob=float(top_prob),
+        symptoms=capture_context or {},
+        case_state=case_state,
+    )
+
+    response: Dict[str, Any] = {
+        "scan_id": scan_id,
+        "top_label": top_label,
+        "top_prob": float(top_prob),
+        "confidence_mode": confidence_mode,
+        "top3": [{"label": lbl, "prob": float(prob)} for lbl, prob in top3],
+        "advice": (
+            [
+                "Result uncertain. Retake a clear, close-up photo in natural light.",
+                "If symptoms are severe, spreading, painful, bleeding, rapidly changing, or you’re worried, consult a licensed clinician promptly.",
+            ]
+            if top_label == "uncertain"
+            else advice_for_label(top_label)
+        ),
+        "products": products,
+        "disclaimer": str(products_payload.get("disclaimer", "")).strip(),
+        "affiliate_disclosure": affiliate_line,
+        "model_backend": result.backend,
+        "notes": result.notes,
+        "case_state": case_state,
+        "reasoning": reasoning,
+        "capture_guidance": capture_guidance(pil_img),
+        "safety": (
+            "This tool is not a medical diagnosis. If you have severe pain, swelling, fever, spreading rash, "
+            "rapid changes, bleeding, or you are worried, seek a licensed clinician promptly."
+        ),
+    }
+
+    if sid:
+        try:
+            new_used = incr_daily_scans(sid)
+            response["usage"] = {
+                "plan": plan,
+                "daily_max": _freemium_daily_max if plan != "pro" else None,
+                "daily_used": new_used,
+                "daily_remaining": (
+                    max(0, int(_freemium_daily_max) - int(new_used))
+                    if (_freemium_daily_max > 0 and plan != "pro")
+                    else None
+                ),
+            }
+            add_event(
+                sid,
+                "analysis",
+                {
+                    "top_label": top_label,
+                    "top_prob": float(top_prob),
+                    "top3": [{"label": lbl, "prob": float(prob)} for lbl, prob in top3],
+                    "model_backend": result.backend,
+                    "product_ids": [p.get("id") for p in products if isinstance(p, dict)],
+                    "scan_id": scan_id,
+                    "capture_context": capture_context or {},
+                    "confidence_mode": confidence_mode,
+                },
+            )
+            if user_id:
+                save_scan_record(
+                    user_id=user_id,
+                    scan_id=scan_id,
+                    session_id=sid,
+                    top_label=top_label,
+                    top_prob=float(top_prob),
+                    top3=response["top3"],
+                    backend=result.backend,
+                )
+            events = get_events(sid, limit=200)
+            esc = assess_escalation(events)
+            response["escalation"] = {
+                "should_consult": bool(esc.should_consult),
+                "reason": str(esc.reason or ""),
+                "level": str(esc.level or "none"),
+                "consult_url": _consult_url,
+                "consult_label": _consult_label,
+            }
+        except Exception:
+            pass
+
+    return response
 
 
 # Allow local dev from Next.js (and easy hosting). Tighten via CORS_ALLOW_ORIGINS for production.
@@ -347,6 +484,71 @@ async def analytics_summary(
     return get_analytics_summary(days=days, session_id=sid)
 
 
+@app.get("/case/state")
+async def case_state(request: Request) -> Dict[str, Any]:
+    profile = _require_user(request)
+    data = get_journey_summary(str(profile.get("user_id", "")))
+    esc = data.get("escalation") if isinstance(data.get("escalation"), dict) else {}
+    state = data.get("case_state") if isinstance(data.get("case_state"), dict) else {}
+    return {
+        "case_state": {
+            **state,
+            "consult_url": _consult_url,
+            "consult_label": _consult_label,
+        },
+        "progress_signal": data.get("progress_signal", {}),
+        "escalation": {
+            **esc,
+            "consult_url": _consult_url,
+            "consult_label": _consult_label,
+        },
+    }
+
+
+@app.post("/case/check-in")
+async def case_check_in(request: Request, payload: Dict[str, Any]) -> Dict[str, Any]:
+    return await journey_follow_up(request, payload)
+
+
+@app.get("/progress/compare")
+async def progress_compare(request: Request) -> Dict[str, Any]:
+    profile = _require_user(request)
+    data = get_journey_summary(str(profile.get("user_id", "")))
+    scans = data.get("recent_scans") if isinstance(data.get("recent_scans"), list) else []
+    case_state = data.get("case_state") if isinstance(data.get("case_state"), dict) else {}
+    latest = scans[0] if scans else {}
+    previous = scans[1] if len(scans) > 1 else {}
+    latest_prob = float(latest.get("top_prob", 0.0) or 0.0)
+    previous_prob = float(previous.get("top_prob", 0.0) or 0.0)
+    confidence_delta = round(latest_prob - previous_prob, 4) if previous else 0.0
+    summary = "No prior comparison available yet."
+    trend = str(case_state.get("response_trend") or "unknown")
+    if trend == "improving":
+        summary = "Recent follow-ups suggest improvement compared with earlier check-ins."
+    elif trend == "worsening":
+        summary = "Recent follow-ups suggest worsening, so the protocol should stay conservative."
+    elif previous:
+        summary = "Comparison uses your latest two scans plus current follow-up trend."
+    return {
+        "summary": summary,
+        "latest_scan": latest,
+        "previous_scan": previous,
+        "confidence_delta": confidence_delta,
+        "case_state": case_state,
+    }
+
+
+@app.get("/escalation/recommendation")
+async def escalation_recommendation(request: Request) -> Dict[str, Any]:
+    profile = _require_user(request)
+    esc = assess_user_escalation(str(profile.get("user_id", "")))
+    return {
+        **esc,
+        "consult_url": _consult_url,
+        "consult_label": _consult_label,
+    }
+
+
 @app.get("/journey/summary")
 async def journey_summary(request: Request) -> Dict[str, Any]:
     profile = _require_user(request)
@@ -541,6 +743,11 @@ async def routine_plan(request: Request, payload: Dict[str, Any]) -> Dict[str, A
     }
 
 
+@app.post("/protocol/generate")
+async def protocol_generate(request: Request, payload: Dict[str, Any]) -> Dict[str, Any]:
+    return await routine_plan(request, payload)
+
+
 @app.get("/billing/status")
 async def billing_status(request: Request) -> Dict[str, Any]:
     sid = str(request.headers.get("X-Session-Id", "")).strip()
@@ -629,6 +836,79 @@ def journey_page():
     raise HTTPException(status_code=404, detail="Journey page not found.")
 
 
+@app.post("/capture/analyze")
+async def capture_analyze(
+    request: Request,
+    file: UploadFile = File(...),
+    duration_days: int = Form(0),
+    severity: float = Form(0),
+    symptoms: str = Form(""),
+    triggers: str = Form(""),
+    body_zone: str = Form(""),
+) -> Dict[str, Any]:
+    sid = str(request.headers.get("X-Session-Id", "")).strip()
+    plan = "free"
+    if sid:
+        try:
+            plan = get_billing_status(sid).plan
+        except Exception:
+            plan = "free"
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Empty upload.")
+    try:
+        pil_img = Image.open(BytesIO(raw))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not read image.")
+
+    q = check_image_quality(pil_img)
+    if not q.ok:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "image_quality", "reason": q.code, "message": q.message, "metrics": q.metrics},
+        )
+
+    context = _parse_capture_context(
+        {
+            "duration_days": duration_days,
+            "severity": severity,
+            "symptoms": [x.strip() for x in str(symptoms or "").split(",") if x.strip()],
+            "triggers": [x.strip() for x in str(triggers or "").split(",") if x.strip()],
+            "body_zone": body_zone,
+        }
+    )
+    return _predict_image_response(pil_img=pil_img, scan_id=uuid.uuid4().hex, sid=sid, plan=plan, capture_context=context)
+
+
+@app.post("/capture/compare")
+async def capture_compare(
+    current_file: UploadFile = File(...),
+    baseline_file: UploadFile | None = File(default=None),
+) -> Dict[str, Any]:
+    current_raw = await current_file.read()
+    if not current_raw:
+        raise HTTPException(status_code=400, detail="Missing current image.")
+    try:
+        current_img = Image.open(BytesIO(current_raw))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not read current image.")
+
+    baseline_img = None
+    if baseline_file is not None:
+        baseline_raw = await baseline_file.read()
+        if baseline_raw:
+            try:
+                baseline_img = Image.open(BytesIO(baseline_raw))
+            except Exception:
+                baseline_img = None
+
+    return {
+        "capture_guidance": capture_guidance(current_img),
+        "comparison": compare_captures(current_img, baseline_img),
+    }
+
+
 @app.post("/predict")
 async def predict_endpoint(request: Request, file: UploadFile = File(...)) -> Dict[str, Any]:
     scan_id = uuid.uuid4().hex
@@ -636,7 +916,6 @@ async def predict_endpoint(request: Request, file: UploadFile = File(...)) -> Di
     if not _rate_limiter.allow(f"predict:{ip}", _predict_rate):
         raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
 
-    # Freemium daily limit (per tracker session id; Pro bypasses this).
     sid = str(request.headers.get("X-Session-Id", "")).strip()
     plan = "free"
     if sid:
@@ -677,117 +956,16 @@ async def predict_endpoint(request: Request, file: UploadFile = File(...)) -> Di
         if int(w) * int(h) > _max_image_pixels:
             raise HTTPException(status_code=413, detail="Image resolution too large.")
     except Exception:
-        # If size info is unavailable, continue; Pillow will still validate decode during processing.
         pass
 
-    # Quick, safety-first image quality gate (prevents garbage results).
     q = check_image_quality(pil_img)
     if not q.ok:
         raise HTTPException(
             status_code=422,
-            detail={
-                "code": "image_quality",
-                "reason": q.code,
-                "message": q.message,
-                "metrics": q.metrics,
-            },
+            detail={"code": "image_quality", "reason": q.code, "message": q.message, "metrics": q.metrics},
         )
 
-    labels = load_labels()
-    result = predict_pil(pil_img, labels=labels)
-    top3 = result.top3()
-    top_label, top_prob = top3[0]
-
-    # Confidence gate: avoid overconfident-looking guesses on uncertain inputs.
-    if _min_confidence > 0 and float(top_prob) < float(_min_confidence):
-        top_label = "uncertain"
-
-    products_payload = load_products()
-    top3_payload = [{"label": lbl, "prob": float(prob)} for lbl, prob in top3]
-    products = [public_product(p) for p in filter_products_for_top3(products_payload, top3_payload, limit=6)] if top_label != "uncertain" else []
-
-    affiliate_disclosure = str(products_payload.get("affiliate_disclosure", "")).strip()
-    amazon_required = str(os.getenv("DERMIQ_AMAZON_DISCLOSURE", "")).strip()
-    affiliate_line = " ".join([x for x in [affiliate_disclosure, amazon_required] if x])
-
-    response: Dict[str, Any] = {
-        "scan_id": scan_id,
-        "top_label": top_label,
-        "top_prob": float(top_prob),
-        "confidence_mode": ("uncertain" if top_label == "uncertain" else ("watch" if float(top_prob) < 0.7 else "confident")),
-        "top3": [{"label": lbl, "prob": float(prob)} for lbl, prob in top3],
-        "advice": (
-            [
-                "Result uncertain. Retake a clear, close-up photo in natural light.",
-                "If symptoms are severe, spreading, painful, bleeding, rapidly changing, or you’re worried, consult a licensed clinician promptly.",
-            ]
-            if top_label == "uncertain"
-            else advice_for_label(top_label)
-        ),
-        "products": products,
-        "disclaimer": str(products_payload.get("disclaimer", "")).strip(),
-        "affiliate_disclosure": affiliate_line,
-        "model_backend": result.backend,
-        "notes": result.notes,
-        "safety": (
-            "This tool is not a medical diagnosis. If you have severe pain, swelling, fever, spreading rash, "
-            "rapid changes, bleeding, or you are worried, seek a licensed clinician promptly."
-        ),
-    }
-
-    # If the client supplies a tracker session id, store analysis event (no image bytes stored)
-    # and increment daily usage.
-    if sid:
-        try:
-            new_used = incr_daily_scans(sid)
-            response["usage"] = {
-                "plan": plan,
-                "daily_max": _freemium_daily_max if plan != "pro" else None,
-                "daily_used": new_used,
-                "daily_remaining": (
-                    max(0, int(_freemium_daily_max) - int(new_used))
-                    if (_freemium_daily_max > 0 and plan != "pro")
-                    else None
-                ),
-            }
-            add_event(
-                sid,
-                "analysis",
-                {
-                    "top_label": top_label,
-                    "top_prob": float(top_prob),
-                    "top3": [{"label": lbl, "prob": float(prob)} for lbl, prob in top3],
-                    "model_backend": result.backend,
-                    "product_ids": [p.get("id") for p in products if isinstance(p, dict)],
-                    "scan_id": scan_id,
-                },
-            )
-            user_id = get_user_id_for_session(sid)
-            if user_id:
-                try:
-                    save_scan_record(
-                        user_id=user_id,
-                        scan_id=scan_id,
-                        session_id=sid,
-                        top_label=top_label,
-                        top_prob=float(top_prob),
-                        top3=response["top3"],
-                        backend=result.backend,
-                    )
-                except Exception:
-                    pass
-            events = get_events(sid, limit=200)
-            esc = assess_escalation(events)
-            response["escalation"] = {
-                "should_consult": bool(esc.should_consult),
-                "reason": str(esc.reason or ""),
-                "level": str(esc.level or "none"),
-                "consult_url": _consult_url,
-                "consult_label": _consult_label,
-            }
-        except Exception:
-            pass
-    return response
+    return _predict_image_response(pil_img=pil_img, scan_id=scan_id, sid=sid, plan=plan, capture_context={})
 
 
 # Serve the cinematic landing site from the same origin so local preview is a single URL:

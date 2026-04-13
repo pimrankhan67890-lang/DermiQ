@@ -222,6 +222,24 @@ nav{
 #preview-wrap{display:none;margin-top:24px;animation:fadeUp .4s ease}
 #preview-img{max-width:240px;max-height:240px;object-fit:cover;border-radius:var(--r);border:1px solid var(--border2)}
 .scan-cta{text-align:center;margin-top:20px}
+.capture-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;margin-top:18px}
+@media(max-width:860px){.capture-grid{grid-template-columns:1fr}}
+.camera-card,.capture-meta{padding:18px;border-radius:18px;background:rgba(255,255,255,.02);border:1px solid var(--border)}
+.camera-stage{position:relative;aspect-ratio:4/3;border-radius:16px;overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.01));display:flex;align-items:center;justify-content:center}
+.camera-stage video,.camera-stage canvas{width:100%;height:100%;object-fit:cover;display:none}
+.camera-stage.active video,.camera-stage.captured canvas{display:block}
+.camera-overlay{position:absolute;inset:16px;border:1.5px dashed rgba(0,240,204,.35);border-radius:18px;pointer-events:none}
+.camera-empty{padding:20px;text-align:center;color:var(--w3);font-size:.82rem;line-height:1.7}
+.camera-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:12px}
+.meta-field label{display:block;font-size:.72rem;color:var(--w3);margin-bottom:6px}
+.meta-field input,.meta-field select{width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--border2);background:rgba(255,255,255,.03);color:var(--w);font:inherit}
+.chip-checks{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.chip-check{padding:8px 12px;border-radius:999px;border:1px solid var(--border2);background:rgba(255,255,255,.02);font-size:.76rem;color:var(--w2);cursor:pointer}
+.chip-check.on{border-color:var(--teal-b);background:var(--teal-dim);color:var(--teal)}
+.compare-box{display:none;margin-top:14px;padding:14px;border-radius:16px;background:rgba(255,255,255,.02);border:1px solid var(--border)}
+.compare-title{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--w3);margin-bottom:6px}
+.compare-copy{font-size:.82rem;line-height:1.65;color:var(--w2)}
 
 /* ── SCAN PROGRESS ── */
 #scan-progress{
@@ -585,6 +603,71 @@ footer{position:relative;z-index:1;padding:44px clamp(20px,5%,80px) 28px;border-
       <div class="dz-sub">Or click to browse · JPG, PNG · Max 20MB · All skin tones</div>
       <div id="preview-wrap"><img id="preview-img" src="" alt="Preview"></div>
     </div>
+    <div class="capture-grid reveal">
+      <div class="camera-card">
+        <div class="products-title" style="font-size:1rem;margin:0">Live camera guide</div>
+        <div class="products-note" style="margin-top:6px">Use your camera for smarter framing. DermIQ helps you hold the same skin zone steady for future comparisons.</div>
+        <div id="camera-stage" class="camera-stage">
+          <video id="camera-video" autoplay playsinline muted></video>
+          <canvas id="camera-canvas"></canvas>
+          <div class="camera-overlay"></div>
+          <div id="camera-empty" class="camera-empty">Start camera to frame the skin area. DermIQ will help with distance, brightness, and comparison-ready capture.</div>
+        </div>
+        <div class="camera-actions">
+          <button id="btn-camera-start" class="btn-ghost" type="button">Start camera</button>
+          <button id="btn-camera-capture" class="btn-ghost" type="button">Capture frame</button>
+          <button id="btn-camera-reset" class="btn-ghost" type="button">Reset</button>
+        </div>
+        <div id="camera-guidance" class="products-note" style="margin-top:10px">Tip: keep one skin area centered and fill most of the frame.</div>
+        <div id="compare-box" class="compare-box">
+          <div class="compare-title">Progress compare</div>
+          <div id="compare-copy" class="compare-copy">After your next capture, DermIQ can compare it with your previous frame.</div>
+        </div>
+      </div>
+      <div class="capture-meta">
+        <div class="products-title" style="font-size:1rem;margin:0">Clinical context</div>
+        <div class="products-note" style="margin-top:6px">Add symptom context so DermIQ reasons over more than the image alone.</div>
+        <div class="meta-grid">
+          <div class="meta-field">
+            <label for="meta-body-zone">Body zone</label>
+            <select id="meta-body-zone">
+              <option value="">Select zone</option>
+              <option value="face">Face</option>
+              <option value="cheek">Cheek</option>
+              <option value="forehead">Forehead</option>
+              <option value="chin">Chin</option>
+              <option value="scalp">Scalp</option>
+              <option value="arm">Arm</option>
+              <option value="torso">Torso</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="meta-field">
+            <label for="meta-duration">Duration (days)</label>
+            <input id="meta-duration" type="number" min="0" step="1" placeholder="e.g. 14" />
+          </div>
+          <div class="meta-field">
+            <label for="meta-severity">Severity (0–10)</label>
+            <input id="meta-severity" type="number" min="0" max="10" step="1" placeholder="e.g. 4" />
+          </div>
+          <div class="meta-field">
+            <label for="meta-triggers">Triggers (comma separated)</label>
+            <input id="meta-triggers" type="text" placeholder="heat, sweat, new product" />
+          </div>
+        </div>
+        <div class="meta-field" style="margin-top:12px">
+          <label>Symptoms</label>
+          <div id="symptom-chips" class="chip-checks">
+            <button class="chip-check" type="button" data-symptom="itching">Itching</button>
+            <button class="chip-check" type="button" data-symptom="burning">Burning</button>
+            <button class="chip-check" type="button" data-symptom="redness">Redness</button>
+            <button class="chip-check" type="button" data-symptom="flaking">Flaking</button>
+            <button class="chip-check" type="button" data-symptom="bumps">Bumps</button>
+            <button class="chip-check" type="button" data-symptom="dark marks">Dark marks</button>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="scan-cta">
       <button class="btn-cta" id="scan-btn" style="display:none;margin:20px auto 0" onclick="doScan()">
         <span id="scan-btn-txt">🔬 &nbsp;Analyse now</span>
@@ -635,6 +718,11 @@ footer{position:relative;z-index:1;padding:44px clamp(20px,5%,80px) 28px;border-
         <div class="gc-eye">AI Guidance</div>
         <div class="gc-text" id="r-guidance"></div>
         <div class="action-row" id="r-actions"></div>
+      </div>
+      <div class="guidance-card" id="reasoning-card" style="display:none">
+        <div class="gc-eye">Case reasoning</div>
+        <div class="gc-text" id="reasoning-summary"></div>
+        <div id="reasoning-factors" class="products-note" style="margin-top:10px"></div>
       </div>
       <div class="safety-note" id="safety">⚠️ DermIQ provides AI-assisted general guidance only — not a medical diagnosis. Always consult a qualified dermatologist for treatment decisions.</div>
     </div>
