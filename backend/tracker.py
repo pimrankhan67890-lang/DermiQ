@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from backend.taxonomy import family_for_label
+
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_DIR = ROOT / "backend_data"
@@ -602,6 +604,7 @@ def derive_case_state(
 
     return {
         "focus_condition": top_label,
+        "focus_family": family_for_label(top_label),
         "confidence_mode": confidence_mode,
         "symptom_severity": latest_severity,
         "response_trend": trend,

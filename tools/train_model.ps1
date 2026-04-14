@@ -4,7 +4,9 @@ param(
   [int]$FineTuneEpochs = 2,
   [string]$ModelOut = "models/skin_model.keras",
   [string]$LabelsOut = "models/labels.json",
-  [string]$VenvDir = ".venv"
+  [string]$VenvDir = ".venv",
+  [string]$Manifest = "data/train_manifest.jsonl",
+  [switch]$Experimental
 )
 
 $ErrorActionPreference = "Stop"
@@ -51,8 +53,17 @@ try {
   Write-Host "Skipping ImageNet weight prefetch: $($_.Exception.Message)" -ForegroundColor DarkYellow
 }
 
+Write-Host "Building dataset manifest..." -ForegroundColor Yellow
+python tools/build_dataset_manifest.py --dataset $Dataset --out $Manifest
+
+Write-Host "Auditing dataset..." -ForegroundColor Yellow
+python tools/audit_dataset.py --dataset $Dataset --manifest $Manifest $(if(-not $Experimental){'--strict'})
+if ($LASTEXITCODE -ne 0) {
+  throw "Dataset audit failed. Add more licensed/permitted images or rerun with -Experimental for a non-production training run."
+}
+
 Write-Host "Training..." -ForegroundColor Yellow
-python train.py --dataset $Dataset --epochs $Epochs --finetune-epochs $FineTuneEpochs --out-model $ModelOut --out-labels $LabelsOut
+python train.py --dataset $Dataset --epochs $Epochs --finetune-epochs $FineTuneEpochs --out-model $ModelOut --out-labels $LabelsOut --manifest $Manifest $(if($Experimental){'--allow-small-dataset'}else{'--require-manifest-metadata'})
 
 Write-Host "Done." -ForegroundColor Green
 Write-Host "Model written to: $ModelOut"

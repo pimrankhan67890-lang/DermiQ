@@ -38,11 +38,15 @@ def _uniq(items: List[str]) -> List[str]:
 def build_routine_plan(
     *,
     top_label: str,
+    tier1_label: str = "",
+    body_zone: str = "",
     selected_products: List[Dict[str, Any]],
     prefs: Optional[Dict[str, Any]] = None,
     case_state: Optional[Dict[str, Any]] = None,
 ) -> RoutinePlan:
     label = str(top_label or "").strip().lower()
+    family = str(tier1_label or "").strip().lower()
+    body_zone = str(body_zone or "").strip().lower()
     prefs = prefs or {}
     case_state = case_state or {}
 
@@ -107,6 +111,16 @@ def build_routine_plan(
         notes.append("If scaling is widespread, painful, or worsening, clinician confirmation is a safer next step.")
     elif label == "seborrheic_dermatitis":
         notes.append("Keep scalp and face care simple and track whether flaking is improving week to week.")
+
+    if body_zone:
+        notes.append(f"Body zone used for this protocol: {body_zone.replace('_', ' ')}.")
+    if family and family != label:
+        notes.append(f"DermIQ is also using the broader family pattern: {family.replace('_', ' ')}.")
+
+    if family == "growth_lesion_suspicious":
+        avoid.append("Avoid treating this like a routine cosmetic issue without clinician review.")
+    elif family == "fungal_infectious_looking":
+        avoid.append("Avoid layering many actives or steroid-like products without clinical confirmation.")
 
     if pregnancy_safe:
         notes.append("Pregnancy-safe preference is on, so avoid starting strong actives unless a clinician approves.")

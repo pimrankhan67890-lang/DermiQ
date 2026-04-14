@@ -6,7 +6,7 @@ import logging
 import uuid
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,12 +25,13 @@ from backend.billing import (
     stripe_handle_webhook,
 )
 from backend.capture import build_reasoning_summary, capture_guidance, compare_captures
-from backend.products import filter_products_for_top3, list_products, load_products, public_product
+from backend.products import build_product_recommendation_bundle, filter_products_for_top3, list_products, load_products, public_product
 from backend.outgoing import normalize_store, validate_outgoing_url
 from backend.routine import build_routine_plan
 from backend.security import InMemoryRateLimiter, RateLimit
 from backend.quality import check_image_quality
 from backend.skin_infer import load_labels, load_tf_model, predict_pil
+from backend.taxonomy import aggregate_family_scores, body_zone_normalized, confidence_mode_for_prediction, family_reasoning_copy
 from backend.tracker import (
     assess_escalation,
     assess_user_escalation,
@@ -140,17 +141,26 @@ def _predict_image_response(
     result = predict_pil(pil_img, labels=labels)
     top3 = result.top3()
     top_label, top_prob = top3[0]
-    if _min_confidence > 0 and float(top_prob) < float(_min_confidence):
-        top_label = "uncertain"
+    second_prob = float(top3[1][1]) if len(top3) > 1 else 0.0
+    capture_context = capture_context or {}
+    severity_value = float(capture_context.get("severity", 0.0) or 0.0)
+    body_zone_used = body_zone_normalized(str(capture_context.get("body_zone", "")).strip())
+    symptoms = capture_context.get("symptoms", []) if isinstance(capture_context.get("symptoms"), list) else []
+    triggers = capture_context.get("triggers", []) if isinstance(capture_context.get("triggers"), list) else []
+    red_flags = []
+    for flag in list(symptoms) + list(triggers):
+        item = str(flag).strip().lower()
+        if item in {"bleeding", "spreading", "spreading_fast", "severe_pain", "fever", "eye_involvement"}:
+            red_flags.append(item)
+    if severity_value >= 9:
+        red_flags.append("severe_pain")
 
     products_payload = load_products()
     top3_payload = [{"label": lbl, "prob": float(prob)} for lbl, prob in top3]
-    products = [public_product(p) for p in filter_products_for_top3(products_payload, top3_payload, limit=6)] if top_label != "uncertain" else []
     affiliate_disclosure = str(products_payload.get("affiliate_disclosure", "")).strip()
     amazon_required = str(os.getenv("DERMIQ_AMAZON_DISCLOSURE", "")).strip()
     affiliate_line = " ".join([x for x in [affiliate_disclosure, amazon_required] if x])
 
-    confidence_mode = "uncertain" if top_label == "uncertain" else ("watch" if float(top_prob) < 0.7 else "confident")
     case_state: Dict[str, Any] = {}
     user_id = get_user_id_for_session(sid) if sid else ""
     if user_id:
@@ -160,29 +170,72 @@ def _predict_image_response(
         except Exception:
             case_state = {}
 
-    reasoning = build_reasoning_summary(
+    family_scores = aggregate_family_scores(top3_payload)
+    tier1_label = family_scores[0][0] if family_scores else "normal_low_concern_unclear"
+    confidence_mode, abstained = confidence_mode_for_prediction(
         top_label=top_label,
+        top_prob=float(top_prob),
+        second_prob=float(second_prob),
+        red_flags=red_flags,
+    )
+    if _min_confidence > 0 and float(top_prob) < float(_min_confidence):
+        confidence_mode = "uncertain"
+        abstained = True
+    tier2_label = "" if abstained else top_label
+    display_label = "uncertain" if abstained else top_label
+
+    bundle = build_product_recommendation_bundle(
+        payload=products_payload,
+        tier1_label=tier1_label,
+        tier2_label=tier2_label or top_label,
+        body_zone=body_zone_used,
+        symptom_severity=severity_value,
+        confidence_mode=confidence_mode,
+        case_state=case_state,
+        limit=6,
+    )
+    products = bundle.get("matched_products", [])
+
+    reasoning = build_reasoning_summary(
+        top_label=display_label,
         confidence_mode=confidence_mode,
         top_prob=float(top_prob),
-        symptoms=capture_context or {},
+        symptoms=capture_context,
         case_state=case_state,
     )
+    supporting = list(reasoning.get("supporting_factors", []) or [])
+    family_copy = family_reasoning_copy(tier1_label)
+    if family_copy:
+        supporting.insert(0, family_copy)
+    if body_zone_used:
+        supporting.append(f"Body zone considered: {body_zone_used.replace('_', ' ')}.")
+    reasoning["supporting_factors"] = supporting[:8]
 
     response: Dict[str, Any] = {
         "scan_id": scan_id,
-        "top_label": top_label,
+        "top_label": display_label,
         "top_prob": float(top_prob),
         "confidence_mode": confidence_mode,
+        "tier1_label": tier1_label,
+        "tier2_label": tier2_label,
+        "abstained": bool(abstained),
+        "body_zone_used": body_zone_used,
         "top3": [{"label": lbl, "prob": float(prob)} for lbl, prob in top3],
         "advice": (
             [
                 "Result uncertain. Retake a clear, close-up photo in natural light.",
                 "If symptoms are severe, spreading, painful, bleeding, rapidly changing, or you’re worried, consult a licensed clinician promptly.",
             ]
-            if top_label == "uncertain"
+            if abstained
             else advice_for_label(top_label)
         ),
         "products": products,
+        "matched_products": products,
+        "product_categories": bundle.get("product_categories", []),
+        "why_matched": bundle.get("why_matched", []),
+        "when_not_to_use": bundle.get("when_not_to_use", []),
+        "when_to_stop": bundle.get("when_to_stop", ""),
+        "when_to_consult": bundle.get("when_to_consult", ""),
         "disclaimer": str(products_payload.get("disclaimer", "")).strip(),
         "affiliate_disclosure": affiliate_line,
         "model_backend": result.backend,
@@ -213,14 +266,18 @@ def _predict_image_response(
                 sid,
                 "analysis",
                 {
-                    "top_label": top_label,
+                    "top_label": display_label,
+                    "tier1_label": tier1_label,
+                    "tier2_label": tier2_label,
                     "top_prob": float(top_prob),
                     "top3": [{"label": lbl, "prob": float(prob)} for lbl, prob in top3],
                     "model_backend": result.backend,
                     "product_ids": [p.get("id") for p in products if isinstance(p, dict)],
                     "scan_id": scan_id,
-                    "capture_context": capture_context or {},
+                    "capture_context": capture_context,
                     "confidence_mode": confidence_mode,
+                    "abstained": bool(abstained),
+                    "body_zone_used": body_zone_used,
                 },
             )
             if user_id:
@@ -228,7 +285,7 @@ def _predict_image_response(
                     user_id=user_id,
                     scan_id=scan_id,
                     session_id=sid,
-                    top_label=top_label,
+                    top_label=display_label,
                     top_prob=float(top_prob),
                     top3=response["top3"],
                     backend=result.backend,
@@ -324,7 +381,15 @@ async def auth_session_exchange(request: Request, payload: Dict[str, Any]) -> Di
 
 
 @app.get("/products")
-def products_catalog(category: str = "", limit: int = 100) -> Dict[str, Any]:
+def products_catalog(
+    category: str = "",
+    limit: int = 100,
+    tier1_label: str = "",
+    tier2_label: str = "",
+    body_zone: str = "",
+    confidence_mode: str = "",
+    severity: float = 0.0,
+) -> Dict[str, Any]:
     """
     Public product catalog for the landing UI (no prices).
     """
@@ -333,11 +398,24 @@ def products_catalog(category: str = "", limit: int = 100) -> Dict[str, Any]:
     affiliate_disclosure = str(payload.get("affiliate_disclosure", "")).strip()
     amazon_required = str(os.getenv("DERMIQ_AMAZON_DISCLOSURE", "")).strip()
     affiliate_line = " ".join([x for x in [affiliate_disclosure, amazon_required] if x])
-    return {
+    response = {
         "products": items,
         "disclaimer": str(payload.get("disclaimer", "")).strip(),
         "affiliate_disclosure": affiliate_line,
     }
+    if tier1_label or tier2_label:
+        bundle = build_product_recommendation_bundle(
+            payload=payload,
+            tier1_label=tier1_label,
+            tier2_label=tier2_label,
+            body_zone=body_zone_normalized(body_zone),
+            symptom_severity=float(severity or 0.0),
+            confidence_mode=confidence_mode or "watch",
+            case_state={},
+            limit=limit,
+        )
+        response.update(bundle)
+    return response
 
 
 @app.get("/out")
@@ -682,6 +760,8 @@ async def routine_plan(request: Request, payload: Dict[str, Any]) -> Dict[str, A
     sid = str(request.headers.get("X-Session-Id", "")).strip()
     scan_id = str(payload.get("scan_id", "")).strip()
     top_label = str(payload.get("top_label", "")).strip()
+    tier1_label = str(payload.get("tier1_label", "")).strip()
+    body_zone = body_zone_normalized(str(payload.get("body_zone", "")).strip())
     selected_ids = payload.get("selected_products", [])
     if not isinstance(selected_ids, list):
         selected_ids = []
@@ -713,7 +793,14 @@ async def routine_plan(request: Request, payload: Dict[str, Any]) -> Dict[str, A
         except Exception:
             case_state = {}
 
-    plan = build_routine_plan(top_label=top_label, selected_products=selected_products, prefs=prefs, case_state=case_state)
+    plan = build_routine_plan(
+        top_label=top_label,
+        tier1_label=tier1_label,
+        body_zone=body_zone,
+        selected_products=selected_products,
+        prefs=prefs,
+        case_state=case_state,
+    )
 
     if sid:
         try:
@@ -733,6 +820,8 @@ async def routine_plan(request: Request, payload: Dict[str, Any]) -> Dict[str, A
     return {
         "scan_id": scan_id,
         "top_label": top_label,
+        "tier1_label": tier1_label,
+        "body_zone_used": body_zone,
         "selected_products": selected_products,
         "plan": plan.to_dict(),
         "case_state": case_state,

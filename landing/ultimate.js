@@ -527,6 +527,8 @@
     const payload = {
       scan_id: scanId || "",
       top_label: String(lastScan?.top_label || ""),
+      tier1_label: String(lastScan?.tier1_label || ""),
+      body_zone: String(lastScan?.body_zone_used || clinicalContext().body_zone || ""),
       selected_products: cartIds.slice(0, 30),
       preferences: prefs,
     };
@@ -588,6 +590,8 @@
         detail: {
           scan_id: scanId || "",
           top_label: String(lastScan?.top_label || ""),
+          tier1_label: String(lastScan?.tier1_label || ""),
+          body_zone: String(lastScan?.body_zone_used || clinicalContext().body_zone || ""),
           selected_products: cartIds.slice(0, 30),
           preferences: prefs,
           plan,
@@ -1040,7 +1044,8 @@
     }
 
     // Products
-    matchedProducts = String(d?.top_label || "") === "uncertain" ? [] : (Array.isArray(d?.products) ? d.products : []);
+    const productSource = Array.isArray(d?.matched_products) ? d.matched_products : (Array.isArray(d?.products) ? d.products : []);
+    matchedProducts = String(d?.top_label || "") === "uncertain" ? [] : productSource;
     const prods = [];
     const prodWrap = qs("products-wrap");
     const grid = qs("prods-grid");

@@ -118,20 +118,24 @@ Then:
 Optional helper scripts (Windows PowerShell):
 
 - `tools/check_model.ps1` — shows whether a trained model is present (otherwise the app uses heuristic fallback)
-- `tools/train_model.ps1` — installs TensorFlow and trains `models/skin_model.keras`
+- `tools/train_model.ps1` — builds a manifest, audits dataset readiness, installs TensorFlow, and trains `models/skin_model.keras`
+- `tools/build_dataset_manifest.py` — creates starter body-zone / quality metadata for training images
+- `tools/audit_dataset.py` — checks class counts, metadata coverage, and whole-body readiness
+- `tools/evaluate_model.py` — evaluates the trained model and reports slice metrics (body zone, skin tone when metadata exists)
 
 Model quality tips:
 
 - You cannot reach **100% accuracy** reliably from photos alone (lighting, look-alikes, and dataset bias).
 - Aim for **high accuracy + safe uncertainty**: set `MIN_CONFIDENCE` (example `0.55`) so low-confidence scans return `top_label=uncertain` instead of a confident-looking guess.
 - Use balanced, diverse images per class (skin tones, lighting, angles) and keep labels consistent.
-- `tools/train_model.ps1` — creates a venv, installs deps + TensorFlow, and trains to `models/skin_model.h5`
 - `tools/prefetch_imagenet_weights.ps1` — downloads MobileNetV2 ImageNet weights into `.keras_cache/` (improves accuracy and avoids network at train time)
 
 Outputs:
 
 - `models/skin_model.keras`
 - `models/labels.json`
+- `models/train_metrics.json`
+- `models/eval_metrics.json`
 
 Restart the app after training and it will automatically use the saved model.
 

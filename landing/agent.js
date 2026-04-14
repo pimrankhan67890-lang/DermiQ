@@ -344,6 +344,8 @@
     return {
       scan_id: String(scan?.scan_id || ""),
       top_label: String(scan?.top_label || "uncertain"),
+      tier1_label: String(scan?.tier1_label || ""),
+      body_zone: String(scan?.body_zone_used || state.answers.body_zone || ""),
       selected_products: shortlisted,
       preferences: {
         sensitive_skin: sensitiveSymptoms,

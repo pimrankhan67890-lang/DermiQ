@@ -22,6 +22,40 @@ def _load_labels(labels_path: Path) -> List[str]:
     return [x.strip() for x in labels if x.strip()]
 
 
+def _load_manifest(path: Path) -> Dict[str, Dict[str, str]]:
+    if not path.exists():
+        return {}
+    raw = path.read_text(encoding="utf-8").strip()
+    if not raw:
+        return {}
+    rows = []
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, list):
+            rows = parsed
+    except Exception:
+        for line in raw.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rows.append(json.loads(line))
+            except Exception:
+                continue
+    out: Dict[str, Dict[str, str]] = {}
+    for item in rows:
+        if not isinstance(item, dict):
+            continue
+        rel = str(item.get("relpath", "")).replace("\\", "/").strip()
+        if rel:
+            out[rel] = {
+                "body_zone": str(item.get("body_zone", "")).strip(),
+                "skin_tone_bucket": str(item.get("skin_tone_bucket", "")).strip(),
+                "quality_flag": str(item.get("quality_flag", "")).strip(),
+            }
+    return out
+
+
 @dataclass(frozen=True)
 class Metrics:
     samples: int
@@ -29,6 +63,8 @@ class Metrics:
     top3_acc: float
     per_class_acc: Dict[str, float]
     confusion_matrix: List[List[int]]
+    by_body_zone: Dict[str, float]
+    by_skin_tone_bucket: Dict[str, float]
 
 
 def main() -> int:
@@ -39,6 +75,7 @@ def main() -> int:
     ap.add_argument("--img-size", type=int, default=224, help="Square image size used in training.")
     ap.add_argument("--batch", type=int, default=32, help="Batch size.")
     ap.add_argument("--out", type=str, default="models/eval_metrics.json", help="Output JSON path.")
+    ap.add_argument("--manifest", type=str, default="data/train_manifest.jsonl", help="Optional dataset metadata manifest.")
     args = ap.parse_args()
 
     try:
@@ -52,6 +89,7 @@ def main() -> int:
     labels_path = Path(args.labels)
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest = _load_manifest(Path(args.manifest))
 
     labels = _load_labels(labels_path)
     label_to_idx = {lbl: i for i, lbl in enumerate(labels)}
@@ -59,6 +97,7 @@ def main() -> int:
     # Load samples.
     all_paths: List[str] = []
     all_y: List[int] = []
+    all_meta: List[Dict[str, str]] = []
     for lbl in labels:
         cdir = dataset_dir / lbl
         if not cdir.exists():
@@ -66,6 +105,8 @@ def main() -> int:
         for p in _iter_images(cdir):
             all_paths.append(p.as_posix())
             all_y.append(label_to_idx[lbl])
+            rel = p.relative_to(dataset_dir).as_posix()
+            all_meta.append(manifest.get(rel, {}))
 
     if not all_paths:
         raise SystemExit("No images found for the labels in labels.json.")
@@ -114,12 +155,27 @@ def main() -> int:
         denom = sum(int(x) for x in row)
         per_class[lbl] = (float(row[i]) / float(denom)) if denom else 0.0
 
+    def slice_acc(key: str) -> Dict[str, float]:
+        buckets: Dict[str, List[int]] = {}
+        for idx, meta in enumerate(all_meta):
+            bucket = str(meta.get(key, "")).strip() or "unknown"
+            buckets.setdefault(bucket, []).append(idx)
+        out: Dict[str, float] = {}
+        for bucket, indices in buckets.items():
+            if not indices:
+                continue
+            correct = sum(1 for i in indices if y_true[i] == y_pred[i])
+            out[bucket] = float(correct / len(indices))
+        return out
+
     m = Metrics(
         samples=n,
         top1_acc=float(top1),
         top3_acc=float(top3),
         per_class_acc=per_class,
         confusion_matrix=[[int(x) for x in r] for r in cm],
+        by_body_zone=slice_acc("body_zone"),
+        by_skin_tone_bucket=slice_acc("skin_tone_bucket"),
     )
 
     out_path.write_text(json.dumps(asdict(m), indent=2), encoding="utf-8")
@@ -132,4 +188,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

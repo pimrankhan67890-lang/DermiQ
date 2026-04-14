@@ -5,7 +5,7 @@ import json
 import random
 import os
 from pathlib import Path
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 
 def find_class_folders(dataset_dir: Path) -> List[Path]:
@@ -35,6 +35,46 @@ def save_labels(labels: List[str], path: Path) -> None:
     path.write_text(json.dumps({"labels": labels}, indent=2), encoding="utf-8")
 
 
+def load_manifest(path: Path) -> Dict[str, Dict[str, str]]:
+    if not path.exists():
+        return {}
+    try:
+        raw = path.read_text(encoding="utf-8").strip()
+    except Exception:
+        return {}
+    if not raw:
+        return {}
+    entries = []
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, list):
+            entries = parsed
+    except Exception:
+        entries = []
+        for line in raw.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entries.append(json.loads(line))
+            except Exception:
+                continue
+    out: Dict[str, Dict[str, str]] = {}
+    for item in entries:
+        if not isinstance(item, dict):
+            continue
+        rel = str(item.get("relpath", "")).replace("\\", "/").strip()
+        if not rel:
+            continue
+        out[rel] = {
+            "body_zone": str(item.get("body_zone", "")).strip(),
+            "skin_tone_bucket": str(item.get("skin_tone_bucket", "")).strip(),
+            "quality_flag": str(item.get("quality_flag", "")).strip(),
+            "source_dataset": str(item.get("source_dataset", "")).strip(),
+        }
+    return out
+
+
 def non_empty_class_folders(dataset_dir: Path) -> List[Path]:
     classes = find_class_folders(dataset_dir)
     out: List[Path] = []
@@ -56,6 +96,11 @@ def main() -> int:
     parser.add_argument("--out-model", type=str, default="models/skin_model.keras", help="Output model path.")
     parser.add_argument("--out-labels", type=str, default="models/labels.json", help="Output labels path.")
     parser.add_argument("--out-metrics", type=str, default="models/train_metrics.json", help="Output training metrics JSON.")
+    parser.add_argument("--manifest", type=str, default="data/train_manifest.jsonl", help="Optional dataset metadata manifest.")
+    parser.add_argument("--min-images-per-class", type=int, default=100, help="Minimum usable images per class for serious training.")
+    parser.add_argument("--min-classes", type=int, default=8, help="Minimum number of non-empty classes for serious training.")
+    parser.add_argument("--allow-small-dataset", action="store_true", help="Allow training to continue even if the dataset does not meet whole-body thresholds.")
+    parser.add_argument("--require-manifest-metadata", action="store_true", help="Require metadata coverage in the manifest for serious training.")
     args = parser.parse_args()
 
     # Ensure Keras cache is writable (some environments block writing to user profile dirs).
@@ -105,6 +150,44 @@ def main() -> int:
         return 0
 
     print(f"Classes: {class_names}")
+
+    manifest = load_manifest(Path(args.manifest))
+    class_counts = {name: count_images(dataset_dir / name) for name in class_names}
+    weak_classes = {name: count for name, count in class_counts.items() if count < int(args.min_images_per_class)}
+    serious_threshold_failed = len(class_names) < int(args.min_classes) or bool(weak_classes)
+
+    metadata_coverage = 0.0
+    if manifest:
+        total_manifest_hits = 0
+        metadata_hits = 0
+        for class_dir in class_dirs:
+            for p in class_dir.rglob("*"):
+                if not p.is_file() or p.suffix.lower() not in {".jpg", ".jpeg", ".png", ".bmp", ".webp"}:
+                    continue
+                rel = p.relative_to(dataset_dir).as_posix()
+                if rel in manifest:
+                    total_manifest_hits += 1
+                    row = manifest[rel]
+                    if row.get("body_zone") and row.get("quality_flag"):
+                        metadata_hits += 1
+        metadata_coverage = (metadata_hits / total_manifest_hits) if total_manifest_hits else 0.0
+    elif args.require_manifest_metadata:
+        metadata_coverage = 0.0
+
+    if serious_threshold_failed and not args.allow_small_dataset:
+        print("Dataset gate failed for whole-body training.")
+        print(f"  Required non-empty classes: >= {int(args.min_classes)}")
+        print(f"  Found non-empty classes: {len(class_names)}")
+        if weak_classes:
+            print(f"  Classes below {int(args.min_images_per_class)} images: {weak_classes}")
+        print("  Add more licensed/permitted data or rerun with --allow-small-dataset for experimental training only.")
+        return 1
+
+    if args.require_manifest_metadata and metadata_coverage < 0.8 and not args.allow_small_dataset:
+        print("Dataset metadata coverage is too low for serious whole-body training.")
+        print(f"  Manifest coverage with body_zone + quality_flag: {metadata_coverage:.1%}")
+        print("  Build a richer manifest first or rerun with --allow-small-dataset for experimental training only.")
+        return 1
 
     all_paths: List[str] = []
     all_labels: List[int] = []
@@ -301,6 +384,9 @@ def main() -> int:
                     "train_samples": len(train_paths),
                     "val_samples": len(val_paths),
                     "class_weight": {str(k): float(v) for k, v in class_weight.items()},
+                    "class_counts": class_counts,
+                    "manifest_path": str(Path(args.manifest)),
+                    "metadata_coverage": metadata_coverage,
                     "history": hist.history or {},
                     "val_eval": eval_map,
                     "confusion_matrix": cm,
