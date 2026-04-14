@@ -74,6 +74,7 @@ _max_image_pixels = int(os.getenv("MAX_IMAGE_PIXELS", str(12_000_000)))  # ~12 M
 _landing_dir = Path(__file__).resolve().parent.parent / "landing"
 _landing_index = _landing_dir / "index.html"
 _landing_journey = _landing_dir / "journey.html"
+_landing_agent = _landing_dir / "agent.html"
 _enable_telemetry = str(os.getenv("ENABLE_TELEMETRY", "0")).strip() in {"1", "true", "yes", "on"}
 _consult_url = str(os.getenv("CONSULT_URL", "")).strip()
 _consult_label = str(os.getenv("CONSULT_LABEL", "Consult a clinician")).strip()
@@ -834,6 +835,13 @@ def journey_page():
     if _landing_journey.exists():
         return FileResponse(str(_landing_journey))
     raise HTTPException(status_code=404, detail="Journey page not found.")
+
+
+@app.get("/agent", include_in_schema=False)
+def agent_page():
+    if _landing_agent.exists():
+        return FileResponse(str(_landing_agent))
+    raise HTTPException(status_code=404, detail="Agent page not found.")
 
 
 @app.post("/capture/analyze")
