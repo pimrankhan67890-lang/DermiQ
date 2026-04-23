@@ -48,6 +48,7 @@
   let exploreCategory = "sunscreen";
   const catalogCache = new Map();
   let matchedProducts = [];
+  let lastProductMode = "matched_guidance";
   let cameraStream = null;
   let lastCapturedBlob = null;
   const selectedSymptoms = new Set();
@@ -322,21 +323,37 @@
     const prods = buildHubProducts(category, payload);
     const matchCount = prods.filter((product) => product?._source === "matched").length;
     const topLabel = String(lastScan?.top_label || "").trim();
+    const confidenceMode = String(lastScan?.confidence_mode || "").trim().toLowerCase();
+    const conservativeMode =
+      lastProductMode === "conservative_support" ||
+      confidenceMode === "uncertain" ||
+      confidenceMode === "escalate" ||
+      !!lastScan?.abstained;
     if (prodTitle) {
-      prodTitle.textContent = topLabel && topLabel !== "uncertain" ? `Smart product hub for ${labelToTitle(topLabel)}` : "Smart product hub";
+      if (topLabel && topLabel !== "uncertain") prodTitle.textContent = `Smart product hub for ${labelToTitle(topLabel)}`;
+      else if (conservativeMode) prodTitle.textContent = "Smart product hub — conservative support";
+      else prodTitle.textContent = "Smart product hub";
     }
     if (prodNote) {
       const affiliate = String(payload?.affiliate_disclosure || "").trim();
-      const intro =
-        matchCount > 0
-          ? `${matchCount} matched pick${matchCount === 1 ? "" : "s"} appear first. Switch tabs to compare category alternatives in the same hub.`
-          : "Compare curated products by category in one place, then shortlist what you want to try.";
+      const intro = conservativeMode
+        ? (
+            matchCount > 0
+              ? `${matchCount} conservative support pick${matchCount === 1 ? "" : "s"} appear first because DermIQ is not confident enough to push stronger targeted products.`
+              : "DermIQ is not confident enough to push strong targeted products, so you can compare conservative support options by category here."
+          )
+        : (
+            matchCount > 0
+              ? `${matchCount} matched pick${matchCount === 1 ? "" : "s"} appear first. Switch tabs to compare category alternatives in the same hub.`
+              : "Compare curated products by category in one place, then shortlist what you want to try."
+          );
       prodNote.textContent = [intro, affiliate].filter(Boolean).join(" ");
       prodNote.style.display = "block";
     }
     if (hubNote) {
-      hubNote.textContent =
-        "DermIQ helps you compare and shortlist products here. When you click a store button, checkout finishes on Amazon, Flipkart, or PharmEasy.";
+      hubNote.textContent = conservativeMode
+        ? "DermIQ is uncertain, so this hub is prioritising gentle support products first. Avoid strong targeted actives until you get a clearer scan or a clinician reviews the area."
+        : "DermIQ helps you compare and shortlist products here. When you click a store button, checkout finishes on Amazon, Flipkart, or PharmEasy.";
     }
 
     grid.innerHTML = "";
@@ -348,7 +365,7 @@
     prods.slice(0, 18).forEach((p) => {
       const id = String(p?.id || "");
       const name = String(p?.name || "Product");
-      const reason = String(p?.reason || "");
+      const reason = String(p?.reason || p?.why_this || "").trim() || "Curated by DermIQ for this routine category.";
       const icon = productIcon(id);
       const badge = String(p?.pick_badge || "").trim();
       const links = Array.isArray(p?.buy_links) ? p.buy_links : [];
@@ -1045,55 +1062,23 @@
 
     // Products
     const productSource = Array.isArray(d?.matched_products) ? d.matched_products : (Array.isArray(d?.products) ? d.products : []);
-    matchedProducts = String(d?.top_label || "") === "uncertain" ? [] : productSource;
-    const prods = [];
+    matchedProducts = productSource;
+    lastProductMode = String(d?.product_mode || "").trim() || (d?.confidence_safe_for_products === false ? "conservative_support" : "matched_guidance");
     const prodWrap = qs("products-wrap");
     const grid = qs("prods-grid");
     const prodTitle = qs("prod-title");
     const prodNote = qs("products-note");
     const tierTagEl = qs("prod-tier-tag");
     if (tierTagEl) {
-      tierTagEl.textContent = "";
-      tierTagEl.style.display = "none";
+      tierTagEl.textContent = lastProductMode === "conservative_support" ? "Conservative support" : "Matched picks";
+      tierTagEl.style.display = "inline-flex";
     }
     if (prodTitle) prodTitle.textContent = "Smart product hub";
-    if (grid) grid.innerHTML = "";
     if (prodWrap) prodWrap.style.display = "none";
-    if (String(d?.top_label || "") === "uncertain") {
-      if (prodWrap) prodWrap.style.display = "none";
-      if (grid) grid.innerHTML = "";
-    }
     if (prodNote) {
       const a = String(d?.affiliate_disclosure || "").trim();
       prodNote.textContent = a;
       prodNote.style.display = a ? "block" : "none";
-    }
-
-    if (grid && prods.length) {
-      prods.slice(0, 8).forEach((p) => {
-        const name = String(p?.name || "Product");
-        const reason = String(p?.reason || "");
-        const links = Array.isArray(p?.buy_links) ? p.buy_links : [];
-        const icon = productIcon(p?.id);
-        const linksHtml = links
-          .slice(0, 2)
-          .map((l) => {
-            const url = String(l?.url || "").trim();
-            const label = String(l?.name || "Buy").trim();
-            if (!url) return "";
-            const href = outHref(url, label, String(p?.id || ""));
-            return `<a href="${href}" target="_blank" rel="noreferrer noopener sponsored" class="prod-buy">Buy on ${label} →</a>`;
-          })
-          .join("");
-        grid.innerHTML += `<div class="prod-card">
-          <div class="prod-img">${icon}</div>
-          <div class="prod-body">
-            <div class="prod-name">${name}</div>
-            <div class="prod-why">${reason}</div>
-            <div class="prod-links">${linksHtml || "<span class='prod-why'>No buy links</span>"}</div>
-          </div>
-        </div>`;
-      });
     }
 
     // Show model status + disclaimer in safety note (avoid noisy debug when tensorflow works).
@@ -1119,16 +1104,7 @@
     if (thanks) thanks.style.display = "none";
     document.querySelectorAll(".fb-btn").forEach((b) => (b.disabled = false));
 
-    if (String(d?.top_label || "") !== "uncertain") {
-      loadExplorer(exploreCategory).catch(() => {});
-    } else {
-      const prodWrap = qs("products-wrap");
-      const cartWrap = qs("cart-wrap");
-      const routineWrap = qs("routine-wrap");
-      if (prodWrap) prodWrap.style.display = "none";
-      if (cartWrap) cartWrap.style.display = "none";
-      if (routineWrap) routineWrap.style.display = "none";
-    }
+    loadExplorer(exploreCategory).catch(() => {});
 
     results?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -1334,3 +1310,4 @@
     stopCamera();
   });
 })();
+

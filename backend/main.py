@@ -216,6 +216,12 @@ def _predict_image_response(
         "top_label": display_label,
         "top_prob": float(top_prob),
         "confidence_mode": confidence_mode,
+        "confidence_safe_for_products": bool(bundle.get("confidence_safe_for_products", False)),
+        "product_mode": (
+            "matched_guidance"
+            if bool(bundle.get("confidence_safe_for_products", False))
+            else "conservative_support"
+        ),
         "tier1_label": tier1_label,
         "tier2_label": tier2_label,
         "abstained": bool(abstained),
